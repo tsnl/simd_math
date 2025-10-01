@@ -1,5 +1,4 @@
 use super::*;
-
 use num_traits::identities::ConstZero;
 use std::fmt::Debug;
 use std::ops::{Add, Div, Index, Mul, Neg, Sub};

@@ -1,6 +1,5 @@
-use crate::vector::SimdVec3;
+use super::*;
 use std::ops::Mul;
-use std::simd::prelude::*;
 
 /// Quaternion represented as an f32x4 SIMD datatype [s, x, y, z]
 /// IMPORTANT: norm is assumed to always be 1. Constructors ensure this.
