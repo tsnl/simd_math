@@ -1,7 +1,7 @@
 use crate::vector::{SimdVec2, SimdVec3};
 use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign};
 
-macro_rules! impl_simd_aabb {
+macro_rules! impl_simd_rect {
     ($name:ident, $vec_type:ty, $num_elements:expr) => {
         #[derive(Clone, Copy, Debug)]
         pub struct $name {
@@ -126,17 +126,14 @@ macro_rules! impl_simd_aabb {
 }
 
 // Define the 2D and 3D AABB types
-impl_simd_aabb!(SimdAabb2, SimdVec2, 2);
-impl_simd_aabb!(SimdAabb3, SimdVec3, 3);
-
-// Legacy alias for backward compatibility
-pub type SimdAABB = SimdAabb3;
+impl_simd_rect!(SimdRect2, SimdVec2, 2);
+impl_simd_rect!(SimdRect3, SimdVec3, 3);
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    macro_rules! impl_aabb2_tests {
+    macro_rules! impl_rect2_tests {
         ($test_mod:ident) => {
             mod $test_mod {
                 use super::*;
@@ -158,56 +155,56 @@ mod tests {
                     assert_f32_near(a.y(), b.y());
                 }
 
-                fn assert_aabb_near(a: SimdAabb2, b: SimdAabb2) {
+                fn assert_rect_near(a: SimdRect2, b: SimdRect2) {
                     assert_vec2_near(a.min, b.min);
                     assert_vec2_near(a.max, b.max);
                 }
 
                 #[test]
-                fn test_aabb_new() {
+                fn test_rect_new() {
                     let min = SimdVec2::new(1.0, 2.0);
                     let max = SimdVec2::new(4.0, 5.0);
-                    let aabb = SimdAabb2::new(min, max);
+                    let rect = SimdRect2::new(min, max);
 
-                    assert_vec2_near(aabb.min(), min);
-                    assert_vec2_near(aabb.max(), max);
+                    assert_vec2_near(rect.min(), min);
+                    assert_vec2_near(rect.max(), max);
                 }
 
                 #[test]
-                fn test_aabb_accessors() {
+                fn test_rect_accessors() {
                     let min = SimdVec2::new(-1.0, -2.0);
                     let max = SimdVec2::new(1.0, 2.0);
-                    let aabb = SimdAabb2::new(min, max);
+                    let rect = SimdRect2::new(min, max);
 
-                    assert_vec2_near(aabb.min(), min);
-                    assert_vec2_near(aabb.max(), max);
+                    assert_vec2_near(rect.min(), min);
+                    assert_vec2_near(rect.max(), max);
                 }
 
                 #[test]
-                fn test_aabb_center() {
+                fn test_rect_center() {
                     let min = SimdVec2::new(0.0, 0.0);
                     let max = SimdVec2::new(4.0, 6.0);
-                    let aabb = SimdAabb2::new(min, max);
+                    let rect = SimdRect2::new(min, max);
 
-                    let center = aabb.center();
+                    let center = rect.center();
                     let expected = SimdVec2::new(2.0, 3.0);
                     assert_vec2_near(center, expected);
                 }
 
                 #[test]
-                fn test_aabb_extent() {
+                fn test_rect_extent() {
                     let min = SimdVec2::new(1.0, 2.0);
                     let max = SimdVec2::new(5.0, 8.0);
-                    let aabb = SimdAabb2::new(min, max);
+                    let rect = SimdRect2::new(min, max);
 
-                    let extent = aabb.extent();
+                    let extent = rect.extent();
                     let expected = SimdVec2::new(4.0, 6.0);
                     assert_vec2_near(extent, expected);
                 }
 
                 #[test]
-                fn test_aabb_union_identity() {
-                    let identity = SimdAabb2::union_identity();
+                fn test_rect_union_identity() {
+                    let identity = SimdRect2::union_identity();
 
                     // Union identity should have infinite min and negative infinite max
                     assert_eq!(identity.min.x(), f32::INFINITY);
@@ -216,15 +213,15 @@ mod tests {
                     assert_eq!(identity.max.y(), f32::NEG_INFINITY);
 
                     // Test that union with any AABB gives that AABB
-                    let test_aabb =
-                        SimdAabb2::new(SimdVec2::new(1.0, 2.0), SimdVec2::new(4.0, 5.0));
-                    let result = identity | test_aabb;
-                    assert_aabb_near(result, test_aabb);
+                    let test_rect =
+                        SimdRect2::new(SimdVec2::new(1.0, 2.0), SimdVec2::new(4.0, 5.0));
+                    let result = identity | test_rect;
+                    assert_rect_near(result, test_rect);
                 }
 
                 #[test]
-                fn test_aabb_intersection_identity() {
-                    let identity = SimdAabb2::intersection_identity();
+                fn test_rect_intersection_identity() {
+                    let identity = SimdRect2::intersection_identity();
 
                     // Intersection identity should have negative infinite min and infinite max
                     assert_eq!(identity.min.x(), f32::NEG_INFINITY);
@@ -233,85 +230,85 @@ mod tests {
                     assert_eq!(identity.max.y(), f32::INFINITY);
 
                     // Test that intersection with any AABB gives that AABB
-                    let test_aabb =
-                        SimdAabb2::new(SimdVec2::new(1.0, 2.0), SimdVec2::new(4.0, 5.0));
-                    let result = identity & test_aabb;
-                    assert_aabb_near(result, test_aabb);
+                    let test_rect =
+                        SimdRect2::new(SimdVec2::new(1.0, 2.0), SimdVec2::new(4.0, 5.0));
+                    let result = identity & test_rect;
+                    assert_rect_near(result, test_rect);
                 }
 
                 #[test]
-                fn test_aabb_union_with_aabb() {
-                    let aabb1 = SimdAabb2::new(SimdVec2::new(0.0, 0.0), SimdVec2::new(2.0, 2.0));
-                    let aabb2 = SimdAabb2::new(SimdVec2::new(1.0, 1.0), SimdVec2::new(3.0, 3.0));
-                    let expected = SimdAabb2::new(SimdVec2::new(0.0, 0.0), SimdVec2::new(3.0, 3.0));
+                fn test_rect_union_with_rect() {
+                    let rect1 = SimdRect2::new(SimdVec2::new(0.0, 0.0), SimdVec2::new(2.0, 2.0));
+                    let rect2 = SimdRect2::new(SimdVec2::new(1.0, 1.0), SimdVec2::new(3.0, 3.0));
+                    let expected = SimdRect2::new(SimdVec2::new(0.0, 0.0), SimdVec2::new(3.0, 3.0));
 
-                    let union = aabb1 | aabb2;
-                    assert_aabb_near(union, expected);
+                    let union = rect1 | rect2;
+                    assert_rect_near(union, expected);
 
                     // Test |= operator
-                    let mut aabb3 = aabb1;
-                    aabb3 |= aabb2;
-                    assert_aabb_near(aabb3, expected);
+                    let mut rect3 = rect1;
+                    rect3 |= rect2;
+                    assert_rect_near(rect3, expected);
                 }
 
                 #[test]
-                fn test_aabb_union_with_point() {
-                    let aabb = SimdAabb2::new(SimdVec2::new(1.0, 1.0), SimdVec2::new(3.0, 3.0));
+                fn test_rect_union_with_point() {
+                    let rect = SimdRect2::new(SimdVec2::new(1.0, 1.0), SimdVec2::new(3.0, 3.0));
 
                     // Point inside AABB - should not change AABB
                     let point_inside = SimdVec2::new(2.0, 2.0);
-                    let result1 = aabb | point_inside;
-                    assert_aabb_near(result1, aabb);
+                    let result1 = rect | point_inside;
+                    assert_rect_near(result1, rect);
 
                     // Point outside AABB - should expand AABB
                     let point_outside = SimdVec2::new(0.0, 4.0);
-                    let expected = SimdAabb2::new(SimdVec2::new(0.0, 1.0), SimdVec2::new(3.0, 4.0));
-                    let result2 = aabb | point_outside;
-                    assert_aabb_near(result2, expected);
+                    let expected = SimdRect2::new(SimdVec2::new(0.0, 1.0), SimdVec2::new(3.0, 4.0));
+                    let result2 = rect | point_outside;
+                    assert_rect_near(result2, expected);
 
                     // Test |= operator
-                    let mut aabb3 = aabb;
-                    aabb3 |= point_outside;
-                    assert_aabb_near(aabb3, expected);
+                    let mut rect3 = rect;
+                    rect3 |= point_outside;
+                    assert_rect_near(rect3, expected);
                 }
 
                 #[test]
-                fn test_aabb_intersection_with_aabb() {
-                    let aabb1 = SimdAabb2::new(SimdVec2::new(0.0, 0.0), SimdVec2::new(4.0, 4.0));
-                    let aabb2 = SimdAabb2::new(SimdVec2::new(2.0, 2.0), SimdVec2::new(6.0, 6.0));
-                    let expected = SimdAabb2::new(SimdVec2::new(2.0, 2.0), SimdVec2::new(4.0, 4.0));
+                fn test_rect_intersection_with_rect() {
+                    let rect1 = SimdRect2::new(SimdVec2::new(0.0, 0.0), SimdVec2::new(4.0, 4.0));
+                    let rect2 = SimdRect2::new(SimdVec2::new(2.0, 2.0), SimdVec2::new(6.0, 6.0));
+                    let expected = SimdRect2::new(SimdVec2::new(2.0, 2.0), SimdVec2::new(4.0, 4.0));
 
-                    let intersection = aabb1 & aabb2;
-                    assert_aabb_near(intersection, expected);
+                    let intersection = rect1 & rect2;
+                    assert_rect_near(intersection, expected);
 
                     // Test &= operator
-                    let mut aabb3 = aabb1;
-                    aabb3 &= aabb2;
-                    assert_aabb_near(aabb3, expected);
+                    let mut rect3 = rect1;
+                    rect3 &= rect2;
+                    assert_rect_near(rect3, expected);
                 }
 
                 #[test]
-                fn test_aabb_intersection_with_point() {
-                    let aabb = SimdAabb2::new(SimdVec2::new(1.0, 1.0), SimdVec2::new(5.0, 5.0));
+                fn test_rect_intersection_with_point() {
+                    let rect = SimdRect2::new(SimdVec2::new(1.0, 1.0), SimdVec2::new(5.0, 5.0));
 
                     // Point inside AABB - should shrink AABB towards point
                     let point = SimdVec2::new(3.0, 2.0);
-                    let expected = SimdAabb2::new(SimdVec2::new(3.0, 2.0), SimdVec2::new(3.0, 2.0));
-                    let result = aabb & point;
-                    assert_aabb_near(result, expected);
+                    let expected = SimdRect2::new(SimdVec2::new(3.0, 2.0), SimdVec2::new(3.0, 2.0));
+                    let result = rect & point;
+                    assert_rect_near(result, expected);
 
                     // Test &= operator
-                    let mut aabb2 = aabb;
-                    aabb2 &= point;
-                    assert_aabb_near(aabb2, expected);
+                    let mut rect2 = rect;
+                    rect2 &= point;
+                    assert_rect_near(rect2, expected);
                 }
 
                 #[test]
-                fn test_aabb_no_intersection() {
-                    let aabb1 = SimdAabb2::new(SimdVec2::new(0.0, 0.0), SimdVec2::new(2.0, 2.0));
-                    let aabb2 = SimdAabb2::new(SimdVec2::new(3.0, 3.0), SimdVec2::new(5.0, 5.0));
+                fn test_rect_no_intersection() {
+                    let rect1 = SimdRect2::new(SimdVec2::new(0.0, 0.0), SimdVec2::new(2.0, 2.0));
+                    let rect2 = SimdRect2::new(SimdVec2::new(3.0, 3.0), SimdVec2::new(5.0, 5.0));
 
-                    let intersection = aabb1 & aabb2;
+                    let intersection = rect1 & rect2;
 
                     // When there's no intersection, the result should have min > max
                     assert!(intersection.min.x() > intersection.max.x());
@@ -319,9 +316,9 @@ mod tests {
                 }
 
                 #[test]
-                fn test_aabb_comprehensive_operations() {
+                fn test_rect_comprehensive_operations() {
                     // Start with union identity
-                    let mut aabb = SimdAabb2::union_identity();
+                    let mut rect = SimdRect2::union_identity();
 
                     // Add some points to build an AABB
                     let points = vec![
@@ -331,16 +328,16 @@ mod tests {
                     ];
 
                     for point in points.iter() {
-                        aabb |= *point;
+                        rect |= *point;
                     }
 
                     let expected =
-                        SimdAabb2::new(SimdVec2::new(-1.0, 0.0), SimdVec2::new(3.0, 4.0));
-                    assert_aabb_near(aabb, expected);
+                        SimdRect2::new(SimdVec2::new(-1.0, 0.0), SimdVec2::new(3.0, 4.0));
+                    assert_rect_near(rect, expected);
 
                     // Test center and extent of the built AABB
-                    let center = aabb.center();
-                    let extent = aabb.extent();
+                    let center = rect.center();
+                    let extent = rect.extent();
                     let expected_center = SimdVec2::new(1.0, 2.0);
                     let expected_extent = SimdVec2::new(4.0, 4.0);
                     assert_vec2_near(center, expected_center);
@@ -350,7 +347,7 @@ mod tests {
         };
     }
 
-    macro_rules! impl_aabb3_tests {
+    macro_rules! impl_rect3_tests {
         ($test_mod:ident) => {
             mod $test_mod {
                 use super::*;
@@ -373,56 +370,56 @@ mod tests {
                     assert_f32_near(a.z(), b.z());
                 }
 
-                fn assert_aabb_near(a: SimdAabb3, b: SimdAabb3) {
+                fn assert_rect_near(a: SimdRect3, b: SimdRect3) {
                     assert_vec3_near(a.min, b.min);
                     assert_vec3_near(a.max, b.max);
                 }
 
                 #[test]
-                fn test_aabb_new() {
+                fn test_rect_new() {
                     let min = SimdVec3::new(1.0, 2.0, 3.0);
                     let max = SimdVec3::new(4.0, 5.0, 6.0);
-                    let aabb = SimdAabb3::new(min, max);
+                    let rect = SimdRect3::new(min, max);
 
-                    assert_vec3_near(aabb.min(), min);
-                    assert_vec3_near(aabb.max(), max);
+                    assert_vec3_near(rect.min(), min);
+                    assert_vec3_near(rect.max(), max);
                 }
 
                 #[test]
-                fn test_aabb_accessors() {
+                fn test_rect_accessors() {
                     let min = SimdVec3::new(-1.0, -2.0, -3.0);
                     let max = SimdVec3::new(1.0, 2.0, 3.0);
-                    let aabb = SimdAabb3::new(min, max);
+                    let rect = SimdRect3::new(min, max);
 
-                    assert_vec3_near(aabb.min(), min);
-                    assert_vec3_near(aabb.max(), max);
+                    assert_vec3_near(rect.min(), min);
+                    assert_vec3_near(rect.max(), max);
                 }
 
                 #[test]
-                fn test_aabb_center() {
+                fn test_rect_center() {
                     let min = SimdVec3::new(0.0, 0.0, 0.0);
                     let max = SimdVec3::new(4.0, 6.0, 8.0);
-                    let aabb = SimdAabb3::new(min, max);
+                    let rect = SimdRect3::new(min, max);
 
-                    let center = aabb.center();
+                    let center = rect.center();
                     let expected = SimdVec3::new(2.0, 3.0, 4.0);
                     assert_vec3_near(center, expected);
                 }
 
                 #[test]
-                fn test_aabb_extent() {
+                fn test_rect_extent() {
                     let min = SimdVec3::new(1.0, 2.0, 3.0);
                     let max = SimdVec3::new(5.0, 8.0, 11.0);
-                    let aabb = SimdAabb3::new(min, max);
+                    let rect = SimdRect3::new(min, max);
 
-                    let extent = aabb.extent();
+                    let extent = rect.extent();
                     let expected = SimdVec3::new(4.0, 6.0, 8.0);
                     assert_vec3_near(extent, expected);
                 }
 
                 #[test]
-                fn test_aabb_union_identity() {
-                    let identity = SimdAabb3::union_identity();
+                fn test_rect_union_identity() {
+                    let identity = SimdRect3::union_identity();
 
                     // Union identity should have infinite min and negative infinite max
                     assert_eq!(identity.min.x(), f32::INFINITY);
@@ -433,15 +430,15 @@ mod tests {
                     assert_eq!(identity.max.z(), f32::NEG_INFINITY);
 
                     // Test that union with any AABB gives that AABB
-                    let test_aabb =
-                        SimdAabb3::new(SimdVec3::new(1.0, 2.0, 3.0), SimdVec3::new(4.0, 5.0, 6.0));
-                    let result = identity | test_aabb;
-                    assert_aabb_near(result, test_aabb);
+                    let test_rect =
+                        SimdRect3::new(SimdVec3::new(1.0, 2.0, 3.0), SimdVec3::new(4.0, 5.0, 6.0));
+                    let result = identity | test_rect;
+                    assert_rect_near(result, test_rect);
                 }
 
                 #[test]
-                fn test_aabb_intersection_identity() {
-                    let identity = SimdAabb3::intersection_identity();
+                fn test_rect_intersection_identity() {
+                    let identity = SimdRect3::intersection_identity();
 
                     // Intersection identity should have negative infinite min and infinite max
                     assert_eq!(identity.min.x(), f32::NEG_INFINITY);
@@ -452,97 +449,97 @@ mod tests {
                     assert_eq!(identity.max.z(), f32::INFINITY);
 
                     // Test that intersection with any AABB gives that AABB
-                    let test_aabb =
-                        SimdAabb3::new(SimdVec3::new(1.0, 2.0, 3.0), SimdVec3::new(4.0, 5.0, 6.0));
-                    let result = identity & test_aabb;
-                    assert_aabb_near(result, test_aabb);
+                    let test_rect =
+                        SimdRect3::new(SimdVec3::new(1.0, 2.0, 3.0), SimdVec3::new(4.0, 5.0, 6.0));
+                    let result = identity & test_rect;
+                    assert_rect_near(result, test_rect);
                 }
 
                 #[test]
-                fn test_aabb_union_with_aabb() {
-                    let aabb1 =
-                        SimdAabb3::new(SimdVec3::new(0.0, 0.0, 0.0), SimdVec3::new(2.0, 2.0, 2.0));
-                    let aabb2 =
-                        SimdAabb3::new(SimdVec3::new(1.0, 1.0, 1.0), SimdVec3::new(3.0, 3.0, 3.0));
+                fn test_rect_union_with_rect() {
+                    let rect1 =
+                        SimdRect3::new(SimdVec3::new(0.0, 0.0, 0.0), SimdVec3::new(2.0, 2.0, 2.0));
+                    let rect2 =
+                        SimdRect3::new(SimdVec3::new(1.0, 1.0, 1.0), SimdVec3::new(3.0, 3.0, 3.0));
                     let expected =
-                        SimdAabb3::new(SimdVec3::new(0.0, 0.0, 0.0), SimdVec3::new(3.0, 3.0, 3.0));
+                        SimdRect3::new(SimdVec3::new(0.0, 0.0, 0.0), SimdVec3::new(3.0, 3.0, 3.0));
 
-                    let union = aabb1 | aabb2;
-                    assert_aabb_near(union, expected);
+                    let union = rect1 | rect2;
+                    assert_rect_near(union, expected);
 
                     // Test |= operator
-                    let mut aabb3 = aabb1;
-                    aabb3 |= aabb2;
-                    assert_aabb_near(aabb3, expected);
+                    let mut rect3 = rect1;
+                    rect3 |= rect2;
+                    assert_rect_near(rect3, expected);
                 }
 
                 #[test]
-                fn test_aabb_union_with_point() {
-                    let aabb =
-                        SimdAabb3::new(SimdVec3::new(1.0, 1.0, 1.0), SimdVec3::new(3.0, 3.0, 3.0));
+                fn test_rect_union_with_point() {
+                    let rect =
+                        SimdRect3::new(SimdVec3::new(1.0, 1.0, 1.0), SimdVec3::new(3.0, 3.0, 3.0));
 
                     // Point inside AABB - should not change AABB
                     let point_inside = SimdVec3::new(2.0, 2.0, 2.0);
-                    let result1 = aabb | point_inside;
-                    assert_aabb_near(result1, aabb);
+                    let result1 = rect | point_inside;
+                    assert_rect_near(result1, rect);
 
                     // Point outside AABB - should expand AABB
                     let point_outside = SimdVec3::new(0.0, 4.0, 2.0);
                     let expected =
-                        SimdAabb3::new(SimdVec3::new(0.0, 1.0, 1.0), SimdVec3::new(3.0, 4.0, 3.0));
-                    let result2 = aabb | point_outside;
-                    assert_aabb_near(result2, expected);
+                        SimdRect3::new(SimdVec3::new(0.0, 1.0, 1.0), SimdVec3::new(3.0, 4.0, 3.0));
+                    let result2 = rect | point_outside;
+                    assert_rect_near(result2, expected);
 
                     // Test |= operator
-                    let mut aabb3 = aabb;
-                    aabb3 |= point_outside;
-                    assert_aabb_near(aabb3, expected);
+                    let mut rect3 = rect;
+                    rect3 |= point_outside;
+                    assert_rect_near(rect3, expected);
                 }
 
                 #[test]
-                fn test_aabb_intersection_with_aabb() {
-                    let aabb1 =
-                        SimdAabb3::new(SimdVec3::new(0.0, 0.0, 0.0), SimdVec3::new(4.0, 4.0, 4.0));
-                    let aabb2 =
-                        SimdAabb3::new(SimdVec3::new(2.0, 2.0, 2.0), SimdVec3::new(6.0, 6.0, 6.0));
+                fn test_rect_intersection_with_rect() {
+                    let rect1 =
+                        SimdRect3::new(SimdVec3::new(0.0, 0.0, 0.0), SimdVec3::new(4.0, 4.0, 4.0));
+                    let rect2 =
+                        SimdRect3::new(SimdVec3::new(2.0, 2.0, 2.0), SimdVec3::new(6.0, 6.0, 6.0));
                     let expected =
-                        SimdAabb3::new(SimdVec3::new(2.0, 2.0, 2.0), SimdVec3::new(4.0, 4.0, 4.0));
+                        SimdRect3::new(SimdVec3::new(2.0, 2.0, 2.0), SimdVec3::new(4.0, 4.0, 4.0));
 
-                    let intersection = aabb1 & aabb2;
-                    assert_aabb_near(intersection, expected);
+                    let intersection = rect1 & rect2;
+                    assert_rect_near(intersection, expected);
 
                     // Test &= operator
-                    let mut aabb3 = aabb1;
-                    aabb3 &= aabb2;
-                    assert_aabb_near(aabb3, expected);
+                    let mut rect3 = rect1;
+                    rect3 &= rect2;
+                    assert_rect_near(rect3, expected);
                 }
 
                 #[test]
-                fn test_aabb_intersection_with_point() {
-                    let aabb =
-                        SimdAabb3::new(SimdVec3::new(1.0, 1.0, 1.0), SimdVec3::new(5.0, 5.0, 5.0));
+                fn test_rect_intersection_with_point() {
+                    let rect =
+                        SimdRect3::new(SimdVec3::new(1.0, 1.0, 1.0), SimdVec3::new(5.0, 5.0, 5.0));
 
                     // Point inside AABB - should shrink AABB towards point
                     let point = SimdVec3::new(3.0, 2.0, 4.0);
                     let expected =
-                        SimdAabb3::new(SimdVec3::new(3.0, 2.0, 4.0), SimdVec3::new(3.0, 2.0, 4.0));
-                    let result = aabb & point;
-                    assert_aabb_near(result, expected);
+                        SimdRect3::new(SimdVec3::new(3.0, 2.0, 4.0), SimdVec3::new(3.0, 2.0, 4.0));
+                    let result = rect & point;
+                    assert_rect_near(result, expected);
 
                     // Test &= operator
-                    let mut aabb2 = aabb;
-                    aabb2 &= point;
-                    assert_aabb_near(aabb2, expected);
+                    let mut rect2 = rect;
+                    rect2 &= point;
+                    assert_rect_near(rect2, expected);
                 }
 
                 #[test]
-                fn test_aabb_no_intersection() {
-                    let aabb1 =
-                        SimdAabb3::new(SimdVec3::new(0.0, 0.0, 0.0), SimdVec3::new(2.0, 2.0, 2.0));
-                    let aabb2 =
-                        SimdAabb3::new(SimdVec3::new(3.0, 3.0, 3.0), SimdVec3::new(5.0, 5.0, 5.0));
+                fn test_rect_no_intersection() {
+                    let rect1 =
+                        SimdRect3::new(SimdVec3::new(0.0, 0.0, 0.0), SimdVec3::new(2.0, 2.0, 2.0));
+                    let rect2 =
+                        SimdRect3::new(SimdVec3::new(3.0, 3.0, 3.0), SimdVec3::new(5.0, 5.0, 5.0));
 
-                    let intersection = aabb1 & aabb2;
+                    let intersection = rect1 & rect2;
 
                     // When there's no intersection, the result should have min > max
                     assert!(intersection.min.x() > intersection.max.x());
@@ -551,9 +548,9 @@ mod tests {
                 }
 
                 #[test]
-                fn test_aabb_comprehensive_operations() {
+                fn test_rect_comprehensive_operations() {
                     // Start with union identity
-                    let mut aabb = SimdAabb3::union_identity();
+                    let mut rect = SimdRect3::union_identity();
 
                     // Add some points to build an AABB
                     let points = vec![
@@ -563,16 +560,16 @@ mod tests {
                     ];
 
                     for point in points.iter() {
-                        aabb |= *point;
+                        rect |= *point;
                     }
 
                     let expected =
-                        SimdAabb3::new(SimdVec3::new(-1.0, 0.0, 1.0), SimdVec3::new(3.0, 4.0, 5.0));
-                    assert_aabb_near(aabb, expected);
+                        SimdRect3::new(SimdVec3::new(-1.0, 0.0, 1.0), SimdVec3::new(3.0, 4.0, 5.0));
+                    assert_rect_near(rect, expected);
 
                     // Test center and extent of the built AABB
-                    let center = aabb.center();
-                    let extent = aabb.extent();
+                    let center = rect.center();
+                    let extent = rect.extent();
                     let expected_center = SimdVec3::new(1.0, 2.0, 3.0);
                     let expected_extent = SimdVec3::new(4.0, 4.0, 4.0);
                     assert_vec3_near(center, expected_center);
@@ -582,29 +579,29 @@ mod tests {
         };
     }
 
-    impl_aabb2_tests!(simd_aabb2_tests);
-    impl_aabb3_tests!(simd_aabb3_tests);
+    impl_rect2_tests!(simd_rect2_tests);
+    impl_rect3_tests!(simd_rect3_tests);
 
     // Legacy tests for backward compatibility
-    mod simd_aabb_legacy_tests {
+    mod simd_rect_legacy_tests {
         use super::*;
 
         #[test]
         fn test_legacy_type_alias() {
-            let aabb = SimdAABB::new(SimdVec3::new(1.0, 2.0, 3.0), SimdVec3::new(4.0, 5.0, 6.0));
-            let aabb3 = SimdAabb3::new(SimdVec3::new(1.0, 2.0, 3.0), SimdVec3::new(4.0, 5.0, 6.0));
+            let rect = SimdRect3::new(SimdVec3::new(1.0, 2.0, 3.0), SimdVec3::new(4.0, 5.0, 6.0));
+            let rect3 = SimdRect3::new(SimdVec3::new(1.0, 2.0, 3.0), SimdVec3::new(4.0, 5.0, 6.0));
 
             // Ensure they're the same type
             assert_eq!(
-                std::mem::size_of::<SimdAABB>(),
-                std::mem::size_of::<SimdAabb3>()
+                std::mem::size_of::<SimdRect3>(),
+                std::mem::size_of::<SimdRect3>()
             );
-            assert_eq!(aabb.min.x(), aabb3.min.x());
-            assert_eq!(aabb.min.y(), aabb3.min.y());
-            assert_eq!(aabb.min.z(), aabb3.min.z());
-            assert_eq!(aabb.max.x(), aabb3.max.x());
-            assert_eq!(aabb.max.y(), aabb3.max.y());
-            assert_eq!(aabb.max.z(), aabb3.max.z());
+            assert_eq!(rect.min.x(), rect3.min.x());
+            assert_eq!(rect.min.y(), rect3.min.y());
+            assert_eq!(rect.min.z(), rect3.min.z());
+            assert_eq!(rect.max.x(), rect3.max.x());
+            assert_eq!(rect.max.y(), rect3.max.y());
+            assert_eq!(rect.max.z(), rect3.max.z());
         }
     }
 }

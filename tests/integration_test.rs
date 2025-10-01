@@ -388,7 +388,7 @@ fn test_aabb_operations() {
     // Test AABB creation and operations
     let min = SimdVec3::new(0.0, 0.0, 0.0);
     let max = SimdVec3::new(1.0, 1.0, 1.0);
-    let aabb = SimdAABB::new(min, max);
+    let aabb = SimdRect3::new(min, max);
 
     let center = aabb.center();
     let extent = aabb.extent();
@@ -403,13 +403,11 @@ fn test_aabb_operations() {
 }
 
 #[test]
-fn test_new_aabb_types() {
-    // Demonstrate the new 2D and 3D AABB types
-
-    // Test 2D AABB
+fn test_rect_types() {
+    // Test 2D rect
     let min2 = SimdVec2::new(0.0, 0.0);
     let max2 = SimdVec2::new(3.0, 4.0);
-    let aabb2 = SimdAabb2::new(min2, max2);
+    let aabb2 = SimdRect2::new(min2, max2);
 
     let center2 = aabb2.center();
     let extent2 = aabb2.extent();
@@ -422,7 +420,7 @@ fn test_new_aabb_types() {
     // Test 3D AABB
     let min3 = SimdVec3::new(1.0, 2.0, 3.0);
     let max3 = SimdVec3::new(4.0, 6.0, 9.0);
-    let aabb3 = SimdAabb3::new(min3, max3);
+    let aabb3 = SimdRect3::new(min3, max3);
 
     let center3 = aabb3.center();
     let extent3 = aabb3.extent();
@@ -435,8 +433,8 @@ fn test_new_aabb_types() {
     assert_eq!(extent3.z(), 6.0);
 
     // Test identity operations
-    let union_id2 = SimdAabb2::union_identity();
-    let intersect_id2 = SimdAabb2::intersection_identity();
+    let union_id2 = SimdRect2::union_identity();
+    let intersect_id2 = SimdRect2::intersection_identity();
 
     let result2 = union_id2 | aabb2;
     // Union with identity should give the original AABB
@@ -452,8 +450,8 @@ fn test_new_aabb_types() {
     assert_eq!(result3.max.x(), aabb2.max.x());
     assert_eq!(result3.max.y(), aabb2.max.y());
 
-    // Test backward compatibility - SimdAABB should work as SimdAabb3
-    let legacy_aabb = SimdAABB::new(min3, max3);
+    // Test backward compatibility - SimdRect3 should work as SimdRect3
+    let legacy_aabb = SimdRect3::new(min3, max3);
     assert_eq!(legacy_aabb.center().x(), aabb3.center().x());
     assert_eq!(legacy_aabb.center().y(), aabb3.center().y());
     assert_eq!(legacy_aabb.center().z(), aabb3.center().z());
@@ -466,12 +464,12 @@ fn example_collision_detection() {
     // Player bounding box
     let player_min = SimdVec3::new(-0.5, 0.0, -0.5);
     let player_max = SimdVec3::new(0.5, 2.0, 0.5);
-    let player_aabb = SimdAABB::new(player_min, player_max);
+    let player_aabb = SimdRect3::new(player_min, player_max);
 
     // Wall bounding box
     let wall_min = SimdVec3::new(2.0, 0.0, -5.0);
     let wall_max = SimdVec3::new(2.5, 3.0, 5.0);
-    let wall_aabb = SimdAABB::new(wall_min, wall_max);
+    let wall_aabb = SimdRect3::new(wall_min, wall_max);
 
     // Test no collision initially
     let intersection = player_aabb & wall_aabb;
@@ -487,7 +485,7 @@ fn example_collision_detection() {
     // Move player toward wall
     let player_new_min = SimdVec3::new(1.8, 0.0, -0.5);
     let player_new_max = SimdVec3::new(2.8, 2.0, 0.5);
-    let player_moved_aabb = SimdAABB::new(player_new_min, player_new_max);
+    let player_moved_aabb = SimdRect3::new(player_new_min, player_new_max);
 
     // Test collision after movement
     let _collision_intersection = player_moved_aabb & wall_aabb;
@@ -515,23 +513,23 @@ fn example_spatial_partitioning() {
     // Real-world example: Spatial partitioning with AABBs
 
     // Create a larger space
-    let _world_bounds = SimdAABB::new(
+    let _world_bounds = SimdRect3::new(
         SimdVec3::new(-10.0, -10.0, -10.0),
         SimdVec3::new(10.0, 10.0, 10.0),
     );
 
     // Objects in the world
     let objects = [
-        SimdAABB::new(
+        SimdRect3::new(
             SimdVec3::new(-2.0, -1.0, -2.0),
             SimdVec3::new(-1.0, 1.0, -1.0),
         ),
-        SimdAABB::new(SimdVec3::new(1.0, -1.0, 1.0), SimdVec3::new(3.0, 2.0, 3.0)),
-        SimdAABB::new(SimdVec3::new(-1.0, 3.0, -1.0), SimdVec3::new(1.0, 5.0, 1.0)),
+        SimdRect3::new(SimdVec3::new(1.0, -1.0, 1.0), SimdVec3::new(3.0, 2.0, 3.0)),
+        SimdRect3::new(SimdVec3::new(-1.0, 3.0, -1.0), SimdVec3::new(1.0, 5.0, 1.0)),
     ];
 
     // Create bounding box that encompasses all objects
-    let mut combined_bounds = SimdAABB::union_identity();
+    let mut combined_bounds = SimdRect3::union_identity();
     for object in &objects {
         combined_bounds |= *object;
     }
@@ -563,16 +561,16 @@ fn example_frustum_culling() {
     let view_width = 8.0;
     let view_height = 6.0;
 
-    let frustum_aabb = SimdAABB::new(
+    let frustum_aabb = SimdRect3::new(
         camera_pos + SimdVec3::new(-view_width / 2.0, -view_height / 2.0, 0.0),
         camera_pos + SimdVec3::new(view_width / 2.0, view_height / 2.0, view_distance),
     );
 
     // Test objects
     let visible_object =
-        SimdAABB::new(SimdVec3::new(-1.0, -1.0, 2.0), SimdVec3::new(1.0, 1.0, 4.0));
+        SimdRect3::new(SimdVec3::new(-1.0, -1.0, 2.0), SimdVec3::new(1.0, 1.0, 4.0));
 
-    let hidden_object = SimdAABB::new(
+    let hidden_object = SimdRect3::new(
         SimdVec3::new(10.0, 10.0, 5.0),
         SimdVec3::new(12.0, 12.0, 7.0),
     );

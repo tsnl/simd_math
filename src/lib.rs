@@ -5,8 +5,8 @@
 //! This library provides high-performance vector, quaternion, matrix, transform, and AABB
 //! operations using Rust's portable SIMD functionality.
 
-mod aabb;
-pub use aabb::*;
+mod rect;
+pub use rect::*;
 
 mod matrix;
 pub use matrix::*;
