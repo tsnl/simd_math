@@ -31,7 +31,8 @@ macro_rules! impl_simd_rect {
             /// Returns the center point of the rect.
             #[inline]
             pub fn center(&self) -> $vec_type {
-                (self.min + self.max) / <$vec_type>::splat(2 as <$vec_type as SimdVector>::LaneType)
+                type LaneType = <$vec_type as SimdVector>::LaneType;
+                (self.min + self.max) / <$vec_type>::splat(2 as LaneType)
             }
 
             /// Returns the extent (size) of the rect.
