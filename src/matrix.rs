@@ -1,7 +1,5 @@
-use crate::quaternion::SimdUnitQuat;
-use crate::vector::SimdVec3;
+use super::*;
 use std::ops::Mul;
-use std::simd::prelude::*;
 
 #[derive(Clone, Copy)]
 pub struct SimdMat4([SimdVec3; 4]);
