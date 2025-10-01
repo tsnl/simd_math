@@ -384,8 +384,8 @@ fn example_robot_arm_kinematics() {
 //--------------------------------------------------------------------------------------------------
 
 #[test]
-fn test_aabb_operations() {
-    // Test AABB creation and operations
+fn test_rect_operations() {
+    // Test rect creation and operations
     let min = SimdVec3::new(0.0, 0.0, 0.0);
     let max = SimdVec3::new(1.0, 1.0, 1.0);
     let aabb = SimdRect3::new(min, max);
@@ -417,7 +417,7 @@ fn test_rect_types() {
     assert_eq!(extent2.x(), 3.0);
     assert_eq!(extent2.y(), 4.0);
 
-    // Test 3D AABB
+    // Test 3D rect
     let min3 = SimdVec3::new(1.0, 2.0, 3.0);
     let max3 = SimdVec3::new(4.0, 6.0, 9.0);
     let aabb3 = SimdRect3::new(min3, max3);
@@ -436,25 +436,19 @@ fn test_rect_types() {
     let union_id2 = SimdRect2::union_identity();
     let intersect_id2 = SimdRect2::intersection_identity();
 
+    // Union with identity should give the original rect
     let result2 = union_id2 | aabb2;
-    // Union with identity should give the original AABB
     assert_eq!(result2.min.x(), aabb2.min.x());
     assert_eq!(result2.min.y(), aabb2.min.y());
     assert_eq!(result2.max.x(), aabb2.max.x());
     assert_eq!(result2.max.y(), aabb2.max.y());
 
+    // Intersection with identity should give the original rect
     let result3 = intersect_id2 & aabb2;
-    // Intersection with identity should give the original AABB
     assert_eq!(result3.min.x(), aabb2.min.x());
     assert_eq!(result3.min.y(), aabb2.min.y());
     assert_eq!(result3.max.x(), aabb2.max.x());
     assert_eq!(result3.max.y(), aabb2.max.y());
-
-    // Test backward compatibility - SimdRect3 should work as SimdRect3
-    let legacy_aabb = SimdRect3::new(min3, max3);
-    assert_eq!(legacy_aabb.center().x(), aabb3.center().x());
-    assert_eq!(legacy_aabb.center().y(), aabb3.center().y());
-    assert_eq!(legacy_aabb.center().z(), aabb3.center().z());
 }
 
 #[test]

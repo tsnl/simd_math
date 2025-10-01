@@ -10,38 +10,38 @@ macro_rules! impl_simd_rect {
         }
 
         impl $name {
-            /// Creates a new AABB with the given min and max bounds.
+            /// Creates a new rect with the given min and max bounds.
             #[inline]
             pub const fn new(min: $vec_type, max: $vec_type) -> Self {
                 $name { min, max }
             }
 
-            /// Returns the minimum bounds of the AABB.
+            /// Returns the minimum bounds of the rect.
             #[inline]
             pub fn min(&self) -> $vec_type {
                 self.min
             }
 
-            /// Returns the maximum bounds of the AABB.
+            /// Returns the maximum bounds of the rect.
             #[inline]
             pub fn max(&self) -> $vec_type {
                 self.max
             }
 
-            /// Returns the center point of the AABB.
+            /// Returns the center point of the rect.
             #[inline]
             pub fn center(&self) -> $vec_type {
                 (self.min + self.max) / <$vec_type>::splat(2 as <$vec_type as SimdVector>::LaneType)
             }
 
-            /// Returns the extent (size) of the AABB.
+            /// Returns the extent (size) of the rect.
             #[inline]
             pub fn extent(&self) -> $vec_type {
                 self.max - self.min
             }
 
             /// Returns the identity element for union operations.
-            /// This AABB will not affect the result when unioned with any other AABB.
+            /// This rect will not affect the result when unioned with any other rects.
             pub fn union_identity() -> Self {
                 $name {
                     min: <$vec_type>::splat($hi),
@@ -50,7 +50,7 @@ macro_rules! impl_simd_rect {
             }
 
             /// Returns the identity element for intersection operations.
-            /// This AABB will not affect the result when intersected with any other AABB.
+            /// This rect will not affect the result when intersected with any other rects.
             pub fn intersection_identity() -> Self {
                 $name {
                     min: <$vec_type>::splat($lo),
@@ -252,7 +252,7 @@ mod tests {
                     $assert_fn(identity.max.x(), $lo_val);
                     $assert_fn(identity.max.y(), $lo_val);
 
-                    // Test that union with any AABB gives that AABB
+                    // Test that union with any rect gives that rect
                     let vals = $test_vals;
                     let test_rect = <$rect_type>::new(
                         <$vec_type>::new(vals[0], vals[1]),
@@ -272,7 +272,7 @@ mod tests {
                     $assert_fn(identity.max.x(), $hi_val);
                     $assert_fn(identity.max.y(), $hi_val);
 
-                    // Test that intersection with any AABB gives that AABB
+                    // Test that intersection with any rect gives that rect
                     let vals = $test_vals;
                     let test_rect = <$rect_type>::new(
                         <$vec_type>::new(vals[0], vals[1]),
@@ -321,7 +321,7 @@ mod tests {
                         <$vec_type>::new(vals[2], vals[3]),
                     );
 
-                    // Point inside AABB - should not change AABB for most cases
+                    // Point inside rect - should not change rect for most cases
                     let point_inside = <$vec_type>::new(vals[10], vals[11]);
                     let result1 = rect | point_inside;
 
