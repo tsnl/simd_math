@@ -403,6 +403,63 @@ fn test_aabb_operations() {
 }
 
 #[test]
+fn test_new_aabb_types() {
+    // Demonstrate the new 2D and 3D AABB types
+
+    // Test 2D AABB
+    let min2 = SimdVec2::new(0.0, 0.0);
+    let max2 = SimdVec2::new(3.0, 4.0);
+    let aabb2 = SimdAabb2::new(min2, max2);
+
+    let center2 = aabb2.center();
+    let extent2 = aabb2.extent();
+
+    assert_eq!(center2.x(), 1.5);
+    assert_eq!(center2.y(), 2.0);
+    assert_eq!(extent2.x(), 3.0);
+    assert_eq!(extent2.y(), 4.0);
+
+    // Test 3D AABB
+    let min3 = SimdVec3::new(1.0, 2.0, 3.0);
+    let max3 = SimdVec3::new(4.0, 6.0, 9.0);
+    let aabb3 = SimdAabb3::new(min3, max3);
+
+    let center3 = aabb3.center();
+    let extent3 = aabb3.extent();
+
+    assert_eq!(center3.x(), 2.5);
+    assert_eq!(center3.y(), 4.0);
+    assert_eq!(center3.z(), 6.0);
+    assert_eq!(extent3.x(), 3.0);
+    assert_eq!(extent3.y(), 4.0);
+    assert_eq!(extent3.z(), 6.0);
+
+    // Test identity operations
+    let union_id2 = SimdAabb2::union_identity();
+    let intersect_id2 = SimdAabb2::intersection_identity();
+
+    let result2 = union_id2 | aabb2;
+    // Union with identity should give the original AABB
+    assert_eq!(result2.min.x(), aabb2.min.x());
+    assert_eq!(result2.min.y(), aabb2.min.y());
+    assert_eq!(result2.max.x(), aabb2.max.x());
+    assert_eq!(result2.max.y(), aabb2.max.y());
+
+    let result3 = intersect_id2 & aabb2;
+    // Intersection with identity should give the original AABB
+    assert_eq!(result3.min.x(), aabb2.min.x());
+    assert_eq!(result3.min.y(), aabb2.min.y());
+    assert_eq!(result3.max.x(), aabb2.max.x());
+    assert_eq!(result3.max.y(), aabb2.max.y());
+
+    // Test backward compatibility - SimdAABB should work as SimdAabb3
+    let legacy_aabb = SimdAABB::new(min3, max3);
+    assert_eq!(legacy_aabb.center().x(), aabb3.center().x());
+    assert_eq!(legacy_aabb.center().y(), aabb3.center().y());
+    assert_eq!(legacy_aabb.center().z(), aabb3.center().z());
+}
+
+#[test]
 fn example_collision_detection() {
     // Real-world example: Simple AABB collision detection
 
