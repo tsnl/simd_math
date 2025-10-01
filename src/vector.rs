@@ -166,19 +166,22 @@ macro_rules! impl_simd_vec_neg_method {
 macro_rules! impl_simd_vec_float_methods {
     ($name:ident : $simd_ty:ty [ $lane_ty:ty ; $dim:expr ]) => {
         impl $name {
+            /// Compute the squared Euclidean norm of the vector.
+            /// This is more efficient than computing the norm itself.
             #[inline]
             pub fn norm_squared(self) -> $lane_ty {
                 self.dot(self)
             }
 
+            /// Compute the Euclidean norm (magnitude) of the vector.
             #[inline]
             pub fn norm(self) -> $lane_ty {
                 self.norm_squared().sqrt()
             }
 
+            /// Normalize the vector by dividing it by its norm.
             #[inline]
             pub fn normalized(self) -> Option<Self> {
-                // Normalize the vector by dividing it by its norm.
                 let norm = self.norm();
                 if norm == 0.0 {
                     // Avoid division by zero
@@ -188,18 +191,25 @@ macro_rules! impl_simd_vec_float_methods {
                 }
             }
 
+            /// Linear interpolation between two vectors a and b by factor t
             #[inline]
             pub fn lerp(a: Self, b: Self, t: $lane_ty) -> Self {
-                // Linear interpolation between two vectors a and b by factor t
                 let k_a = <$simd_ty>::splat(1.0 - t);
                 let k_b = <$simd_ty>::splat(t);
                 let res = a.0 * k_a + b.0 * k_b;
                 Self(res)
             }
 
+            /// Clamp each component of the vector between the corresponding components of min and max
+            #[inline]
+            pub fn clamp(self, min: Self, max: Self) -> Self {
+                let clamped = self.0.simd_clamp(min.0, max.0);
+                Self(clamped)
+            }
+
+            /// Element-wise power operation with scalar exponent
             #[inline]
             pub fn powf(self, exponent: $lane_ty) -> Self {
-                // Element-wise power operation
                 let self_array = *self.0.as_array();
                 let mut result = self_array; // Start with the same array structure
                 for i in 0..$dim {
@@ -208,9 +218,9 @@ macro_rules! impl_simd_vec_float_methods {
                 Self(<$simd_ty>::from_array(result))
             }
 
+            /// Element-wise power operation with SIMD exponent vector
             #[inline]
             pub fn powf_elementwise(self, exponent: Self) -> Self {
-                // Element-wise power operation with SIMD exponent vector
                 let self_array = *self.0.as_array();
                 let exp_array = *exponent.0.as_array();
                 let mut result = self_array; // Start with the same array structure
