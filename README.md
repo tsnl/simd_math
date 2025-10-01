@@ -1,5 +1,7 @@
 # `simd_math`
 
+[![CI](https://github.com/tsnl/simd_math/actions/workflows/ci.yml/badge.svg)](https://github.com/tsnl/simd_math/actions/workflows/ci.yml)
+
 A Rust library providing SIMD-accelerated mathematical functions for games, graphics, robotics, and other spatial computing applications.
 
 ## Example
