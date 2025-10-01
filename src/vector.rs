@@ -286,7 +286,6 @@ impl SimdVec4 {
 
 impl SimdVec2 {
     /// Convert spherical coordinate angles (azimuth, elevation) to equirectangular texture coordinates (u, v).
-    ///
     /// Both azimuth and elevation are expected to be in radians.
     /// - azimuth: angle in the horizontal plane, range [-π, π]
     /// - elevation: angle in the vertical plane, range [-π/2, π/2]

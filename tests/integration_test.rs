@@ -26,7 +26,7 @@ fn test_vector_operations() {
 #[test]
 fn test_quaternion_operations() {
     // Test quaternion creation and rotation
-    let identity = SimdUnitQuat::IDENTITY;
+    let _identity = SimdUnitQuat::IDENTITY;
     let axis = SimdVec3::new(0.0, 0.0, 1.0);
     let angle = PI / 2.0;
     let rotation = SimdUnitQuat::from_axis_angle(axis, angle);
@@ -44,7 +44,7 @@ fn test_quaternion_operations() {
 #[test]
 fn test_matrix_operations() {
     // Test matrix creation and transformation
-    let identity = SimdMat4::identity();
+    let _identity = SimdMat4::identity();
     let translation = SimdVec3::new(1.0, 2.0, 3.0);
     let transform_matrix = SimdMat4::from_translation(translation);
 
