@@ -20,3 +20,4 @@ let rotation = SimdUnitQuat::from_axis_angle(SimdVec3::new(0.0, 0.0, 1.0), PI / 
 // Apply rotation to vector
 let rotated_vector = rotation * vector;
 ```
+
