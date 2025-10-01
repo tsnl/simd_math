@@ -2,6 +2,8 @@
 name = "simd_math"
 version = "0.1.0"
 edition = "2024"
+description = "A Rust library for SIMD-optimized mathematical operations for spatial computing."
+license = "MIT"
 
 [dependencies]
 num-traits = "0.2.19"
