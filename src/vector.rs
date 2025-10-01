@@ -1,11 +1,12 @@
-//--------------------------------------------------------------------------------------------------
-// Vector types:
-//--------------------------------------------------------------------------------------------------
+use super::*;
 
 use num_traits::identities::ConstZero;
 use std::fmt::Debug;
 use std::ops::{Add, Div, Index, Mul, Neg, Sub};
-use std::simd::prelude::*;
+
+pub trait SimdVector: Sized {
+    type LaneType: Sized + ConstZero + Copy + Debug + PartialEq + PartialOrd;
+}
 
 macro_rules! impl_float_simd_vec {
     ($name:ident : $simd_ty:ty [ $lane_ty:ty ; $dim:expr ] { $($field_name:ident),+ } [ $($init:expr),+ ]) => {
@@ -30,6 +31,10 @@ macro_rules! impl_basic_simd_vec {
     ($name:ident : $simd_ty:ty [ $lane_ty:ty ; $dim:expr ] { $($field_name:ident),+ } [ $($init:expr),+ ]) => {
         #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
         pub struct $name(pub(crate) $simd_ty);
+
+        impl SimdVector for $name {
+            type LaneType = $lane_ty;
+        }
 
         impl_simd_vec_ctor_methods!($name : $simd_ty [ $lane_ty ; $dim ] { $($field_name),+ } [ $($init),+ ]);
         impl_simd_vec_base_methods!($name : $simd_ty [ $lane_ty ; $dim ]);

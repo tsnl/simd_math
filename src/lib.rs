@@ -19,3 +19,5 @@ pub use transform::*;
 
 mod vector;
 pub use vector::*;
+
+use std::simd::prelude::*;

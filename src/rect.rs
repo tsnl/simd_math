@@ -1,8 +1,12 @@
-use crate::vector::{SimdVec2, SimdVec3};
-use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign};
+use super::*;
+
+use std::{
+    f32,
+    ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign},
+};
 
 macro_rules! impl_simd_rect {
-    ($name:ident, $vec_type:ty, $num_elements:expr) => {
+    ($name:ident, $vec_type:ty, $num_elements:expr, $lo:expr, $hi:expr) => {
         #[derive(Clone, Copy, Debug)]
         pub struct $name {
             pub min: $vec_type,
@@ -31,7 +35,7 @@ macro_rules! impl_simd_rect {
             /// Returns the center point of the AABB.
             #[inline]
             pub fn center(&self) -> $vec_type {
-                (self.min + self.max) * 0.5
+                (self.min + self.max) / <$vec_type>::splat(2 as <$vec_type as SimdVector>::LaneType)
             }
 
             /// Returns the extent (size) of the AABB.
@@ -44,8 +48,8 @@ macro_rules! impl_simd_rect {
             /// This AABB will not affect the result when unioned with any other AABB.
             pub fn union_identity() -> Self {
                 $name {
-                    min: <$vec_type>::from([f32::INFINITY; $num_elements]),
-                    max: <$vec_type>::from([f32::NEG_INFINITY; $num_elements]),
+                    min: <$vec_type>::splat($hi),
+                    max: <$vec_type>::splat($lo),
                 }
             }
 
@@ -53,8 +57,8 @@ macro_rules! impl_simd_rect {
             /// This AABB will not affect the result when intersected with any other AABB.
             pub fn intersection_identity() -> Self {
                 $name {
-                    min: <$vec_type>::from([f32::NEG_INFINITY; $num_elements]),
-                    max: <$vec_type>::from([f32::INFINITY; $num_elements]),
+                    min: <$vec_type>::splat($lo),
+                    max: <$vec_type>::splat($hi),
                 }
             }
         }
@@ -125,9 +129,13 @@ macro_rules! impl_simd_rect {
     };
 }
 
-// Define the 2D and 3D AABB types
-impl_simd_rect!(SimdRect2, SimdVec2, 2);
-impl_simd_rect!(SimdRect3, SimdVec3, 3);
+impl_simd_rect!(SimdRect2, SimdVec2, 2, f32::NEG_INFINITY, f32::INFINITY);
+impl_simd_rect!(SimdURect2, SimdUVec2, 2, u32::MIN, u32::MAX);
+impl_simd_rect!(SimdIRect2, SimdIVec2, 2, i32::MIN, i32::MAX);
+
+impl_simd_rect!(SimdRect3, SimdVec3, 3, f32::NEG_INFINITY, f32::INFINITY);
+impl_simd_rect!(SimdURect3, SimdUVec3, 3, u32::MIN, u32::MAX);
+impl_simd_rect!(SimdIRect3, SimdIVec3, 3, i32::MIN, i32::MAX);
 
 //--------------------------------------------------------------------------------------------------
 // Tests
