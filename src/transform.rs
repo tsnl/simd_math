@@ -206,4 +206,34 @@ mod simd_transform_tests {
         let inv_t = t.inverse();
         assert_transform_eq(t * inv_t, SimdTransform::default()); // Identity inverse is itself
     }
+
+    #[test]
+    fn test_transform_mul_vec3() {
+        // Test transform applied to vector (rotation + translation)
+        let translation = SimdVec3::new(10.0, 20.0, 30.0);
+        let rotation = SimdUnitQuat::from_axis_angle(SimdVec3::new(0.0, 0.0, 1.0), PI / 2.0); // 90 deg Z
+        let transform = SimdTransform::new(translation, rotation);
+
+        let point = SimdVec3::new(1.0, 0.0, 0.0);
+        let transformed = transform * point;
+
+        // First rotate (1,0,0) by 90deg Z -> (0,1,0), then translate by (10,20,30) -> (10,21,30)
+        let expected = SimdVec3::new(10.0, 21.0, 30.0);
+        assert_vec3_eq(transformed, expected);
+
+        // Test with identity transform
+        let identity = SimdTransform::identity();
+        let unchanged = identity * point;
+        assert_vec3_eq(unchanged, point);
+
+        // Test with translation-only transform
+        let translation_only = SimdTransform::new(translation, SimdUnitQuat::default());
+        let translated = translation_only * point;
+        assert_vec3_eq(translated, point + translation);
+
+        // Test with rotation-only transform
+        let rotation_only = SimdTransform::new(SimdVec3::default(), rotation);
+        let rotated = rotation_only * point;
+        assert_vec3_eq(rotated, SimdVec3::new(0.0, 1.0, 0.0));
+    }
 }

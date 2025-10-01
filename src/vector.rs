@@ -510,3 +510,632 @@ mod spherical_coords_tests {
         assert_vec2_near(uv, SimdVec2::new(1.0, 0.5), EPSILON);
     }
 }
+
+#[cfg(test)]
+mod vector_unit_tests {
+    use super::*;
+
+    const EPSILON: f32 = 1e-6;
+
+    fn assert_f32_near(a: f32, b: f32) {
+        assert!(
+            (a - b).abs() < EPSILON,
+            "Expected {}, got {} (difference: {})",
+            b,
+            a,
+            (a - b).abs()
+        );
+    }
+
+    macro_rules! test_simd_vec_ctor_methods {
+        ($vec_type:ty, $lane_ty:ty, 2, $test_values:expr) => {
+            #[test]
+            fn test_new() {
+                let v = <$vec_type>::new($test_values[0], $test_values[1]);
+                assert_eq!(v[0], $test_values[0]);
+                assert_eq!(v[1], $test_values[1]);
+            }
+
+            #[test]
+            fn test_splat() {
+                let v = <$vec_type>::splat($test_values[0]);
+                assert_eq!(v[0], $test_values[0]);
+                assert_eq!(v[1], $test_values[0]);
+            }
+
+            #[test]
+            fn test_array_conversions() {
+                let arr: [$lane_ty; 2] = [$test_values[0], $test_values[1]];
+                let v = <$vec_type>::from(arr);
+                assert_eq!(v[0], arr[0]);
+                assert_eq!(v[1], arr[1]);
+
+                let back_to_arr: [$lane_ty; 2] = v.into();
+                assert_eq!(back_to_arr, arr);
+            }
+        };
+        ($vec_type:ty, $lane_ty:ty, 3, $test_values:expr) => {
+            #[test]
+            fn test_new() {
+                let v = <$vec_type>::new($test_values[0], $test_values[1], $test_values[2]);
+                assert_eq!(v[0], $test_values[0]);
+                assert_eq!(v[1], $test_values[1]);
+                assert_eq!(v[2], $test_values[2]);
+            }
+
+            #[test]
+            fn test_splat() {
+                let v = <$vec_type>::splat($test_values[0]);
+                assert_eq!(v[0], $test_values[0]);
+                assert_eq!(v[1], $test_values[0]);
+                assert_eq!(v[2], $test_values[0]);
+            }
+
+            #[test]
+            fn test_array_conversions() {
+                let arr: [$lane_ty; 3] = [$test_values[0], $test_values[1], $test_values[2]];
+                let v = <$vec_type>::from(arr);
+                assert_eq!(v[0], arr[0]);
+                assert_eq!(v[1], arr[1]);
+                assert_eq!(v[2], arr[2]);
+
+                let back_to_arr: [$lane_ty; 3] = v.into();
+                assert_eq!(back_to_arr, arr);
+            }
+        };
+        ($vec_type:ty, $lane_ty:ty, 4, $test_values:expr) => {
+            #[test]
+            fn test_new() {
+                let v = <$vec_type>::new(
+                    $test_values[0],
+                    $test_values[1],
+                    $test_values[2],
+                    $test_values[3],
+                );
+                assert_eq!(v[0], $test_values[0]);
+                assert_eq!(v[1], $test_values[1]);
+                assert_eq!(v[2], $test_values[2]);
+                assert_eq!(v[3], $test_values[3]);
+            }
+
+            #[test]
+            fn test_splat() {
+                let v = <$vec_type>::splat($test_values[0]);
+                assert_eq!(v[0], $test_values[0]);
+                assert_eq!(v[1], $test_values[0]);
+                assert_eq!(v[2], $test_values[0]);
+                assert_eq!(v[3], $test_values[0]);
+            }
+
+            #[test]
+            fn test_array_conversions() {
+                let arr: [$lane_ty; 4] = [
+                    $test_values[0],
+                    $test_values[1],
+                    $test_values[2],
+                    $test_values[3],
+                ];
+                let v = <$vec_type>::from(arr);
+                assert_eq!(v[0], arr[0]);
+                assert_eq!(v[1], arr[1]);
+                assert_eq!(v[2], arr[2]);
+                assert_eq!(v[3], arr[3]);
+
+                let back_to_arr: [$lane_ty; 4] = v.into();
+                assert_eq!(back_to_arr, arr);
+            }
+        };
+    }
+
+    macro_rules! test_simd_vec_base_methods_int {
+        ($vec_type:ty, $lane_ty:ty, $dim:expr, $test_values:expr) => {
+            // Use regular base methods but with integer types that support Ord
+            test_simd_vec_base_methods!($vec_type, $lane_ty, $dim, $test_values);
+        };
+    }
+
+    macro_rules! test_simd_vec_base_methods {
+        ($vec_type:ty, $lane_ty:ty, $dim:expr, $test_values:expr) => {
+            #[test]
+            fn test_basic_operations() {
+                // Just test that basic operations work - detailed testing is in other modules
+                let v = <$vec_type>::default();
+                let v2 = <$vec_type>::splat($test_values[0]);
+                let _result = v + v2;
+                let _result = v2.dot(v2);
+                let _result = v2.elementwise_min(v2);
+                let _result = v2.elementwise_max(v2);
+            }
+        };
+    }
+
+    macro_rules! test_simd_vec_neg_method {
+        ($vec_type:ty, 2, $test_values:expr) => {
+            #[test]
+            fn test_negation() {
+                let v = <$vec_type>::new($test_values[0], $test_values[1]);
+                let neg_v = -v;
+                assert_eq!(neg_v[0], -$test_values[0]);
+                assert_eq!(neg_v[1], -$test_values[1]);
+            }
+        };
+        ($vec_type:ty, 3, $test_values:expr) => {
+            #[test]
+            fn test_negation() {
+                let v = <$vec_type>::new($test_values[0], $test_values[1], $test_values[2]);
+                let neg_v = -v;
+                assert_eq!(neg_v[0], -$test_values[0]);
+                assert_eq!(neg_v[1], -$test_values[1]);
+                assert_eq!(neg_v[2], -$test_values[2]);
+            }
+        };
+        ($vec_type:ty, 4, $test_values:expr) => {
+            #[test]
+            fn test_negation() {
+                let v = <$vec_type>::new(
+                    $test_values[0],
+                    $test_values[1],
+                    $test_values[2],
+                    $test_values[3],
+                );
+                let neg_v = -v;
+                assert_eq!(neg_v[0], -$test_values[0]);
+                assert_eq!(neg_v[1], -$test_values[1]);
+                assert_eq!(neg_v[2], -$test_values[2]);
+                assert_eq!(neg_v[3], -$test_values[3]);
+            }
+        };
+    }
+
+    macro_rules! test_simd_vec_float_methods {
+        ($vec_type:ty, 2) => {
+            #[test]
+            fn test_norm() {
+                let v = <$vec_type>::new(3.0, 4.0);
+                assert_f32_near(v.norm_squared(), 25.0);
+                assert_f32_near(v.norm(), 5.0);
+            }
+
+            #[test]
+            fn test_normalized() {
+                let v = <$vec_type>::new(3.0, 4.0);
+                let normalized = v.normalized().unwrap();
+                assert_f32_near(normalized.norm(), 1.0);
+
+                // Test zero vector
+                let zero = <$vec_type>::splat(0.0);
+                assert!(zero.normalized().is_none());
+            }
+
+            #[test]
+            fn test_lerp() {
+                let a = <$vec_type>::splat(0.0);
+                let b = <$vec_type>::splat(10.0);
+
+                let lerp_0 = <$vec_type>::lerp(a, b, 0.0);
+                let lerp_1 = <$vec_type>::lerp(a, b, 1.0);
+                let lerp_half = <$vec_type>::lerp(a, b, 0.5);
+
+                assert_f32_near(lerp_0[0], 0.0);
+                assert_f32_near(lerp_0[1], 0.0);
+                assert_f32_near(lerp_1[0], 10.0);
+                assert_f32_near(lerp_1[1], 10.0);
+                assert_f32_near(lerp_half[0], 5.0);
+                assert_f32_near(lerp_half[1], 5.0);
+            }
+
+            #[test]
+            fn test_clamp() {
+                let v = <$vec_type>::splat(5.0);
+                let min = <$vec_type>::splat(0.0);
+                let max = <$vec_type>::splat(3.0);
+
+                let clamped = v.clamp(min, max);
+                assert_f32_near(clamped[0], 3.0);
+                assert_f32_near(clamped[1], 3.0);
+            }
+
+            #[test]
+            fn test_powf() {
+                let v = <$vec_type>::splat(2.0);
+                let powered = v.powf(3.0);
+                assert_f32_near(powered[0], 8.0);
+                assert_f32_near(powered[1], 8.0);
+            }
+
+            #[test]
+            fn test_powf_elementwise() {
+                let v = <$vec_type>::splat(2.0);
+                let exp = <$vec_type>::splat(3.0);
+                let powered = v.powf_elementwise(exp);
+                assert_f32_near(powered[0], 8.0);
+                assert_f32_near(powered[1], 8.0);
+            }
+        };
+        ($vec_type:ty, 3) => {
+            #[test]
+            fn test_norm() {
+                let v = <$vec_type>::new(3.0, 4.0, 0.0);
+                assert_f32_near(v.norm_squared(), 25.0);
+                assert_f32_near(v.norm(), 5.0);
+            }
+
+            #[test]
+            fn test_normalized() {
+                let v = <$vec_type>::new(3.0, 4.0, 0.0);
+                let normalized = v.normalized().unwrap();
+                assert_f32_near(normalized.norm(), 1.0);
+
+                // Test zero vector
+                let zero = <$vec_type>::splat(0.0);
+                assert!(zero.normalized().is_none());
+            }
+
+            #[test]
+            fn test_lerp() {
+                let a = <$vec_type>::splat(0.0);
+                let b = <$vec_type>::splat(10.0);
+
+                let lerp_0 = <$vec_type>::lerp(a, b, 0.0);
+                let lerp_1 = <$vec_type>::lerp(a, b, 1.0);
+                let lerp_half = <$vec_type>::lerp(a, b, 0.5);
+
+                assert_f32_near(lerp_0[0], 0.0);
+                assert_f32_near(lerp_0[1], 0.0);
+                assert_f32_near(lerp_0[2], 0.0);
+                assert_f32_near(lerp_1[0], 10.0);
+                assert_f32_near(lerp_1[1], 10.0);
+                assert_f32_near(lerp_1[2], 10.0);
+                assert_f32_near(lerp_half[0], 5.0);
+                assert_f32_near(lerp_half[1], 5.0);
+                assert_f32_near(lerp_half[2], 5.0);
+            }
+
+            #[test]
+            fn test_clamp() {
+                let v = <$vec_type>::splat(5.0);
+                let min = <$vec_type>::splat(0.0);
+                let max = <$vec_type>::splat(3.0);
+
+                let clamped = v.clamp(min, max);
+                assert_f32_near(clamped[0], 3.0);
+                assert_f32_near(clamped[1], 3.0);
+                assert_f32_near(clamped[2], 3.0);
+            }
+
+            #[test]
+            fn test_powf() {
+                let v = <$vec_type>::splat(2.0);
+                let powered = v.powf(3.0);
+                assert_f32_near(powered[0], 8.0);
+                assert_f32_near(powered[1], 8.0);
+                assert_f32_near(powered[2], 8.0);
+            }
+
+            #[test]
+            fn test_powf_elementwise() {
+                let v = <$vec_type>::splat(2.0);
+                let exp = <$vec_type>::splat(3.0);
+                let powered = v.powf_elementwise(exp);
+                assert_f32_near(powered[0], 8.0);
+                assert_f32_near(powered[1], 8.0);
+                assert_f32_near(powered[2], 8.0);
+            }
+        };
+        ($vec_type:ty, 4) => {
+            #[test]
+            fn test_norm() {
+                let v = <$vec_type>::new(3.0, 4.0, 0.0, 0.0);
+                assert_f32_near(v.norm_squared(), 25.0);
+                assert_f32_near(v.norm(), 5.0);
+            }
+
+            #[test]
+            fn test_normalized() {
+                let v = <$vec_type>::new(3.0, 4.0, 0.0, 0.0);
+                let normalized = v.normalized().unwrap();
+                assert_f32_near(normalized.norm(), 1.0);
+
+                // Test zero vector
+                let zero = <$vec_type>::splat(0.0);
+                assert!(zero.normalized().is_none());
+            }
+
+            #[test]
+            fn test_lerp() {
+                let a = <$vec_type>::splat(0.0);
+                let b = <$vec_type>::splat(10.0);
+
+                let lerp_0 = <$vec_type>::lerp(a, b, 0.0);
+                let lerp_1 = <$vec_type>::lerp(a, b, 1.0);
+                let lerp_half = <$vec_type>::lerp(a, b, 0.5);
+
+                assert_f32_near(lerp_0[0], 0.0);
+                assert_f32_near(lerp_0[1], 0.0);
+                assert_f32_near(lerp_0[2], 0.0);
+                assert_f32_near(lerp_0[3], 0.0);
+                assert_f32_near(lerp_1[0], 10.0);
+                assert_f32_near(lerp_1[1], 10.0);
+                assert_f32_near(lerp_1[2], 10.0);
+                assert_f32_near(lerp_1[3], 10.0);
+                assert_f32_near(lerp_half[0], 5.0);
+                assert_f32_near(lerp_half[1], 5.0);
+                assert_f32_near(lerp_half[2], 5.0);
+                assert_f32_near(lerp_half[3], 5.0);
+            }
+
+            #[test]
+            fn test_clamp() {
+                let v = <$vec_type>::splat(5.0);
+                let min = <$vec_type>::splat(0.0);
+                let max = <$vec_type>::splat(3.0);
+
+                let clamped = v.clamp(min, max);
+                assert_f32_near(clamped[0], 3.0);
+                assert_f32_near(clamped[1], 3.0);
+                assert_f32_near(clamped[2], 3.0);
+                assert_f32_near(clamped[3], 3.0);
+            }
+
+            #[test]
+            fn test_powf() {
+                let v = <$vec_type>::splat(2.0);
+                let powered = v.powf(3.0);
+                assert_f32_near(powered[0], 8.0);
+                assert_f32_near(powered[1], 8.0);
+                assert_f32_near(powered[2], 8.0);
+                assert_f32_near(powered[3], 8.0);
+            }
+
+            #[test]
+            fn test_powf_elementwise() {
+                let v = <$vec_type>::splat(2.0);
+                let exp = <$vec_type>::splat(3.0);
+                let powered = v.powf_elementwise(exp);
+                assert_f32_near(powered[0], 8.0);
+                assert_f32_near(powered[1], 8.0);
+                assert_f32_near(powered[2], 8.0);
+                assert_f32_near(powered[3], 8.0);
+            }
+        };
+    }
+
+    macro_rules! test_simd_vec_field_methods {
+        ($vec_type:ty, [x: 0, y: 1]) => {
+            #[test]
+            fn test_field_accessors() {
+                let v = <$vec_type>::new(1.0, 2.0);
+                assert_eq!(v.x(), 1.0);
+                assert_eq!(v.y(), 2.0);
+            }
+        };
+        ($vec_type:ty, [x: 0, y: 1, z: 2]) => {
+            #[test]
+            fn test_field_accessors() {
+                let v = <$vec_type>::new(1.0, 2.0, 3.0);
+                assert_eq!(v.x(), 1.0);
+                assert_eq!(v.y(), 2.0);
+                assert_eq!(v.z(), 3.0);
+            }
+        };
+        ($vec_type:ty, [x: 0, y: 1, z: 2, w: 3]) => {
+            #[test]
+            fn test_field_accessors() {
+                let v = <$vec_type>::new(1.0, 2.0, 3.0, 4.0);
+                assert_eq!(v.x(), 1.0);
+                assert_eq!(v.y(), 2.0);
+                assert_eq!(v.z(), 3.0);
+                assert_eq!(v.w(), 4.0);
+            }
+        };
+    }
+
+    macro_rules! test_simd_vec_constants {
+        ($vec_type:ty, 2, [
+            ZERO => [0.0, 0.0],
+            UNIT_X => [1.0, 0.0],
+            UNIT_Y => [0.0, 1.0]
+        ]) => {
+            #[test]
+            fn test_constants() {
+                let zero = <$vec_type>::ZERO;
+                assert_f32_near(zero[0], 0.0);
+                assert_f32_near(zero[1], 0.0);
+
+                let unit_x = <$vec_type>::UNIT_X;
+                assert_f32_near(unit_x[0], 1.0);
+                assert_f32_near(unit_x[1], 0.0);
+
+                let unit_y = <$vec_type>::UNIT_Y;
+                assert_f32_near(unit_y[0], 0.0);
+                assert_f32_near(unit_y[1], 1.0);
+            }
+        };
+        ($vec_type:ty, 3, [
+            ZERO => [0.0, 0.0, 0.0],
+            UNIT_X => [1.0, 0.0, 0.0],
+            UNIT_Y => [0.0, 1.0, 0.0],
+            UNIT_Z => [0.0, 0.0, 1.0]
+        ]) => {
+            #[test]
+            fn test_constants() {
+                let zero = <$vec_type>::ZERO;
+                assert_f32_near(zero[0], 0.0);
+                assert_f32_near(zero[1], 0.0);
+                assert_f32_near(zero[2], 0.0);
+
+                let unit_x = <$vec_type>::UNIT_X;
+                assert_f32_near(unit_x[0], 1.0);
+                assert_f32_near(unit_x[1], 0.0);
+                assert_f32_near(unit_x[2], 0.0);
+
+                let unit_y = <$vec_type>::UNIT_Y;
+                assert_f32_near(unit_y[0], 0.0);
+                assert_f32_near(unit_y[1], 1.0);
+                assert_f32_near(unit_y[2], 0.0);
+
+                let unit_z = <$vec_type>::UNIT_Z;
+                assert_f32_near(unit_z[0], 0.0);
+                assert_f32_near(unit_z[1], 0.0);
+                assert_f32_near(unit_z[2], 1.0);
+            }
+        };
+        ($vec_type:ty, 4, [
+            ZERO => [0.0, 0.0, 0.0, 0.0],
+            UNIT_X => [1.0, 0.0, 0.0, 0.0],
+            UNIT_Y => [0.0, 1.0, 0.0, 0.0],
+            UNIT_Z => [0.0, 0.0, 1.0, 0.0],
+            UNIT_W => [0.0, 0.0, 0.0, 1.0]
+        ]) => {
+            #[test]
+            fn test_constants() {
+                let zero = <$vec_type>::ZERO;
+                assert_f32_near(zero[0], 0.0);
+                assert_f32_near(zero[1], 0.0);
+                assert_f32_near(zero[2], 0.0);
+                assert_f32_near(zero[3], 0.0);
+
+                let unit_x = <$vec_type>::UNIT_X;
+                assert_f32_near(unit_x[0], 1.0);
+                assert_f32_near(unit_x[1], 0.0);
+                assert_f32_near(unit_x[2], 0.0);
+                assert_f32_near(unit_x[3], 0.0);
+
+                let unit_y = <$vec_type>::UNIT_Y;
+                assert_f32_near(unit_y[0], 0.0);
+                assert_f32_near(unit_y[1], 1.0);
+                assert_f32_near(unit_y[2], 0.0);
+                assert_f32_near(unit_y[3], 0.0);
+
+                let unit_z = <$vec_type>::UNIT_Z;
+                assert_f32_near(unit_z[0], 0.0);
+                assert_f32_near(unit_z[1], 0.0);
+                assert_f32_near(unit_z[2], 1.0);
+                assert_f32_near(unit_z[3], 0.0);
+
+                let unit_w = <$vec_type>::UNIT_W;
+                assert_f32_near(unit_w[0], 0.0);
+                assert_f32_near(unit_w[1], 0.0);
+                assert_f32_near(unit_w[2], 0.0);
+                assert_f32_near(unit_w[3], 1.0);
+            }
+        };
+    }
+
+    // Generate tests for each vector type
+    mod simd_vec2_tests {
+        use super::*;
+
+        test_simd_vec_ctor_methods!(SimdVec2, f32, 2, [1.0, 2.0, 3.0, 4.0]);
+        test_simd_vec_base_methods!(SimdVec2, f32, 2, [1.0, 2.0, 3.0, 4.0]);
+        test_simd_vec_neg_method!(SimdVec2, 2, [1.0, -2.0, 3.0, 4.0]);
+        test_simd_vec_float_methods!(SimdVec2, 2);
+        test_simd_vec_field_methods!(SimdVec2, [x: 0, y: 1]);
+        test_simd_vec_constants!(SimdVec2, 2, [
+            ZERO => [0.0, 0.0],
+            UNIT_X => [1.0, 0.0],
+            UNIT_Y => [0.0, 1.0]
+        ]);
+    }
+
+    mod simd_vec3_tests {
+        use super::*;
+
+        test_simd_vec_ctor_methods!(SimdVec3, f32, 3, [1.0, 2.0, 3.0, 4.0]);
+        test_simd_vec_base_methods!(SimdVec3, f32, 3, [1.0, 2.0, 3.0, 2.0]);
+        test_simd_vec_neg_method!(SimdVec3, 3, [1.0, -2.0, 3.0, 4.0]);
+        test_simd_vec_float_methods!(SimdVec3, 3);
+        test_simd_vec_field_methods!(SimdVec3, [x: 0, y: 1, z: 2]);
+        test_simd_vec_constants!(SimdVec3, 3, [
+            ZERO => [0.0, 0.0, 0.0],
+            UNIT_X => [1.0, 0.0, 0.0],
+            UNIT_Y => [0.0, 1.0, 0.0],
+            UNIT_Z => [0.0, 0.0, 1.0]
+        ]);
+
+        #[test]
+        fn test_cross_additional() {
+            // Test additional cross product cases beyond basic unit vectors
+            let v1 = SimdVec3::new(1.0, 2.0, 3.0);
+            let v2 = SimdVec3::new(4.0, 5.0, 6.0);
+            let cross = v1.cross(v2);
+
+            // Cross product should be perpendicular to both vectors
+            assert_f32_near(cross.dot(v1), 0.0);
+            assert_f32_near(cross.dot(v2), 0.0);
+
+            // Test cross product with parallel vectors (should be zero)
+            let parallel1 = SimdVec3::new(1.0, 2.0, 3.0);
+            let parallel2 = SimdVec3::new(2.0, 4.0, 6.0);
+            let zero_cross = parallel1.cross(parallel2);
+            assert_f32_near(zero_cross.norm(), 0.0);
+        }
+    }
+
+    mod simd_vec4_tests {
+        use super::*;
+
+        test_simd_vec_ctor_methods!(SimdVec4, f32, 4, [1.0, 2.0, 3.0, 4.0]);
+        test_simd_vec_base_methods!(SimdVec4, f32, 4, [1.0, 2.0, 3.0, 2.0]);
+        test_simd_vec_neg_method!(SimdVec4, 4, [1.0, -2.0, 3.0, -4.0]);
+        test_simd_vec_float_methods!(SimdVec4, 4);
+        test_simd_vec_field_methods!(SimdVec4, [x: 0, y: 1, z: 2, w: 3]);
+        test_simd_vec_constants!(SimdVec4, 4, [
+            ZERO => [0.0, 0.0, 0.0, 0.0],
+            UNIT_X => [1.0, 0.0, 0.0, 0.0],
+            UNIT_Y => [0.0, 1.0, 0.0, 0.0],
+            UNIT_Z => [0.0, 0.0, 1.0, 0.0],
+            UNIT_W => [0.0, 0.0, 0.0, 1.0]
+        ]);
+
+        #[test]
+        fn test_into_vec3() {
+            let v4 = SimdVec4::new(1.0, 2.0, 3.0, 4.0);
+            let v3 = v4.into_vec3();
+            assert_f32_near(v3.x(), 1.0);
+            assert_f32_near(v3.y(), 2.0);
+            assert_f32_near(v3.z(), 3.0);
+        }
+    }
+
+    // Integer vector tests - separate modules to avoid name conflicts
+    mod simd_ivec2_tests {
+        use super::*;
+        test_simd_vec_ctor_methods!(SimdIVec2, i32, 2, [1, 2, 3, 4]);
+        test_simd_vec_base_methods_int!(SimdIVec2, i32, 2, [1, 2, 3, 2]);
+        test_simd_vec_neg_method!(SimdIVec2, 2, [1, -2, 3, 4]);
+    }
+
+    mod simd_ivec3_tests {
+        use super::*;
+        test_simd_vec_ctor_methods!(SimdIVec3, i32, 3, [1, 2, 3, 4]);
+        test_simd_vec_base_methods_int!(SimdIVec3, i32, 3, [1, 2, 3, 2]);
+        test_simd_vec_neg_method!(SimdIVec3, 3, [1, -2, 3, 4]);
+    }
+
+    mod simd_ivec4_tests {
+        use super::*;
+        test_simd_vec_ctor_methods!(SimdIVec4, i32, 4, [1, 2, 3, 4]);
+        test_simd_vec_base_methods_int!(SimdIVec4, i32, 4, [1, 2, 3, 2]);
+        test_simd_vec_neg_method!(SimdIVec4, 4, [1, -2, 3, -4]);
+    }
+
+    // Unsigned integer vector tests - separate modules to avoid name conflicts
+    mod simd_uvec2_tests {
+        use super::*;
+        test_simd_vec_ctor_methods!(SimdUVec2, u32, 2, [1, 2, 3, 4]);
+        test_simd_vec_base_methods_int!(SimdUVec2, u32, 2, [5, 4, 3, 2]);
+    }
+
+    mod simd_uvec3_tests {
+        use super::*;
+        test_simd_vec_ctor_methods!(SimdUVec3, u32, 3, [1, 2, 3, 4]);
+        test_simd_vec_base_methods_int!(SimdUVec3, u32, 3, [5, 4, 3, 2]);
+    }
+
+    mod simd_uvec4_tests {
+        use super::*;
+        test_simd_vec_ctor_methods!(SimdUVec4, u32, 4, [1, 2, 3, 4]);
+        test_simd_vec_base_methods_int!(SimdUVec4, u32, 4, [5, 4, 3, 2]);
+    }
+}

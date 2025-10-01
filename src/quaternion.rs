@@ -307,4 +307,33 @@ mod simd_unit_quat_tests {
         let v_expected = SimdVec3::new(1.0, -1.0, 0.0).normalized().unwrap();
         assert_vec3_eq(q_rot_z_neg90 * v_in, v_expected);
     }
+
+    #[test]
+    fn test_quat_array_conversions() {
+        let arr = [0.5, 0.1, 0.2, 0.8];
+        let q = SimdUnitQuat::from(arr);
+
+        // Check that the quaternion was normalized
+        let norm_sq = q.0[0] * q.0[0] + q.0[1] * q.0[1] + q.0[2] * q.0[2] + q.0[3] * q.0[3];
+        assert_f32_eq(norm_sq, 1.0);
+
+        // Convert back to array
+        let back_to_arr: [f32; 4] = q.into();
+        let back_norm_sq = back_to_arr[0] * back_to_arr[0]
+            + back_to_arr[1] * back_to_arr[1]
+            + back_to_arr[2] * back_to_arr[2]
+            + back_to_arr[3] * back_to_arr[3];
+        assert_f32_eq(back_norm_sq, 1.0);
+    }
+
+    #[test]
+    fn test_quat_identity_constant() {
+        let identity = SimdUnitQuat::IDENTITY;
+        assert_quat_eq(identity, SimdUnitQuat::new(1.0, 0.0, 0.0, 0.0));
+
+        // Identity quaternion should not change any vector when rotating
+        let test_vector = SimdVec3::new(1.0, 2.0, 3.0);
+        let rotated = identity * test_vector;
+        assert_vec3_eq(rotated, test_vector);
+    }
 }

@@ -291,4 +291,34 @@ mod simd_mat4_tests {
         // (1,0,0) -> Z-rot -> (0,1,0) -> X-rot -> (0,0,1)
         assert_vec3_eq(m_combined_rot * v, SimdVec3::new(0.0, 0.0, 1.0));
     }
+
+    #[test]
+    fn test_mat4_mul_f32x4() {
+        // Test matrix multiplication with f32x4 (internal helper)
+        let m = SimdMat4::new(
+            SimdVec3::new(1.0, 0.0, 0.0),    // X basis
+            SimdVec3::new(0.0, 1.0, 0.0),    // Y basis
+            SimdVec3::new(0.0, 0.0, 1.0),    // Z basis
+            SimdVec3::new(10.0, 20.0, 30.0), // Translation
+        );
+
+        let vec4 = f32x4::from_array([2.0, 3.0, 4.0, 1.0]);
+        let result = m * vec4;
+
+        // Expected: 2*X_basis + 3*Y_basis + 4*Z_basis + 1*translation
+        // = 2*(1,0,0,0) + 3*(0,1,0,0) + 4*(0,0,1,0) + 1*(10,20,30,0)
+        // = (2,0,0,0) + (0,3,0,0) + (0,0,4,0) + (10,20,30,0)
+        // = (12,23,34,0)
+        let expected = f32x4::from_array([12.0, 23.0, 34.0, 0.0]);
+
+        for i in 0..4 {
+            assert!(
+                (result[i] - expected[i]).abs() < EPSILON,
+                "component {}: {} != {}",
+                i,
+                result[i],
+                expected[i]
+            );
+        }
+    }
 }
