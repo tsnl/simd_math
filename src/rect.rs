@@ -185,8 +185,8 @@ mod tests {
                 }
 
                 fn assert_vec2_eq(a: $vec_type, b: $vec_type) {
-                    $assert_fn(a.x(), b.x());
-                    $assert_fn(a.y(), b.y());
+                    $assert_fn(a[0], b[0]);
+                    $assert_fn(a[1], b[1]);
                 }
 
                 fn assert_rect_eq(a: $rect_type, b: $rect_type) {
@@ -197,8 +197,8 @@ mod tests {
                 #[test]
                 fn test_rect_new() {
                     let vals = $test_vals;
-                    let min = <$vec_type>::new(vals[0], vals[1]);
-                    let max = <$vec_type>::new(vals[2], vals[3]);
+                    let min = <$vec_type>::from([vals[0], vals[1]]);
+                    let max = <$vec_type>::from([vals[2], vals[3]]);
                     let rect = <$rect_type>::new(min, max);
 
                     assert_vec2_eq(rect.min(), min);
@@ -208,8 +208,8 @@ mod tests {
                 #[test]
                 fn test_rect_accessors() {
                     let vals = $test_vals;
-                    let min = <$vec_type>::new(vals[0], vals[1]);
-                    let max = <$vec_type>::new(vals[2], vals[3]);
+                    let min = <$vec_type>::from([vals[0], vals[1]]);
+                    let max = <$vec_type>::from([vals[2], vals[3]]);
                     let rect = <$rect_type>::new(min, max);
 
                     assert_vec2_eq(rect.min(), min);
@@ -219,27 +219,27 @@ mod tests {
                 #[test]
                 fn test_rect_center() {
                     let vals = $test_vals;
-                    let min = <$vec_type>::new(vals[0], vals[1]);
-                    let max = <$vec_type>::new(vals[4], vals[5]);
+                    let min = <$vec_type>::from([vals[0], vals[1]]);
+                    let max = <$vec_type>::from([vals[4], vals[5]]);
                     let rect = <$rect_type>::new(min, max);
 
                     let center = rect.center();
-                    let expected = <$vec_type>::new(
+                    let expected = <$vec_type>::from([
                         (vals[0] + vals[4]) / (2 as $lane_type),
                         (vals[1] + vals[5]) / (2 as $lane_type),
-                    );
+                    ]);
                     assert_vec2_eq(center, expected);
                 }
 
                 #[test]
                 fn test_rect_extent() {
                     let vals = $test_vals;
-                    let min = <$vec_type>::new(vals[0], vals[1]);
-                    let max = <$vec_type>::new(vals[4], vals[5]);
+                    let min = <$vec_type>::from([vals[0], vals[1]]);
+                    let max = <$vec_type>::from([vals[4], vals[5]]);
                     let rect = <$rect_type>::new(min, max);
 
                     let extent = rect.extent();
-                    let expected = <$vec_type>::new(vals[4] - vals[0], vals[5] - vals[1]);
+                    let expected = <$vec_type>::from([vals[4] - vals[0], vals[5] - vals[1]]);
                     assert_vec2_eq(extent, expected);
                 }
 
@@ -248,16 +248,16 @@ mod tests {
                     let identity = <$rect_type>::union_identity();
 
                     // Union identity should have hi min and lo max
-                    $assert_fn(identity.min.x(), $hi_val);
-                    $assert_fn(identity.min.y(), $hi_val);
-                    $assert_fn(identity.max.x(), $lo_val);
-                    $assert_fn(identity.max.y(), $lo_val);
+                    $assert_fn(identity.min[0], $hi_val);
+                    $assert_fn(identity.min[1], $hi_val);
+                    $assert_fn(identity.max[0], $lo_val);
+                    $assert_fn(identity.max[1], $lo_val);
 
                     // Test that union with any rect gives that rect
                     let vals = $test_vals;
                     let test_rect = <$rect_type>::new(
-                        <$vec_type>::new(vals[0], vals[1]),
-                        <$vec_type>::new(vals[2], vals[3]),
+                        <$vec_type>::from([vals[0], vals[1]]),
+                        <$vec_type>::from([vals[2], vals[3]]),
                     );
                     let result = identity | test_rect;
                     assert_rect_eq(result, test_rect);
@@ -268,16 +268,16 @@ mod tests {
                     let identity = <$rect_type>::intersection_identity();
 
                     // Intersection identity should have lo min and hi max
-                    $assert_fn(identity.min.x(), $lo_val);
-                    $assert_fn(identity.min.y(), $lo_val);
-                    $assert_fn(identity.max.x(), $hi_val);
-                    $assert_fn(identity.max.y(), $hi_val);
+                    $assert_fn(identity.min[0], $lo_val);
+                    $assert_fn(identity.min[1], $lo_val);
+                    $assert_fn(identity.max[0], $hi_val);
+                    $assert_fn(identity.max[1], $hi_val);
 
                     // Test that intersection with any rect gives that rect
                     let vals = $test_vals;
                     let test_rect = <$rect_type>::new(
-                        <$vec_type>::new(vals[0], vals[1]),
-                        <$vec_type>::new(vals[2], vals[3]),
+                        <$vec_type>::from([vals[0], vals[1]]),
+                        <$vec_type>::from([vals[2], vals[3]]),
                     );
                     let result = identity & test_rect;
                     assert_rect_eq(result, test_rect);
@@ -287,12 +287,12 @@ mod tests {
                 fn test_rect_union_with_rect() {
                     let vals = $test_vals;
                     let rect1 = <$rect_type>::new(
-                        <$vec_type>::new(vals[0], vals[1]),
-                        <$vec_type>::new(vals[2], vals[3]),
+                        <$vec_type>::from([vals[0], vals[1]]),
+                        <$vec_type>::from([vals[2], vals[3]]),
                     );
                     let rect2 = <$rect_type>::new(
-                        <$vec_type>::new(vals[6], vals[7]),
-                        <$vec_type>::new(vals[8], vals[9]),
+                        <$vec_type>::from([vals[6], vals[7]]),
+                        <$vec_type>::from([vals[8], vals[9]]),
                     );
 
                     let min_x = if vals[0] < vals[6] { vals[0] } else { vals[6] };
@@ -301,8 +301,8 @@ mod tests {
                     let max_y = if vals[3] > vals[9] { vals[3] } else { vals[9] };
 
                     let expected = <$rect_type>::new(
-                        <$vec_type>::new(min_x, min_y),
-                        <$vec_type>::new(max_x, max_y),
+                        <$vec_type>::from([min_x, min_y]),
+                        <$vec_type>::from([max_x, max_y]),
                     );
 
                     let union = rect1 | rect2;
@@ -318,12 +318,12 @@ mod tests {
                 fn test_rect_union_with_point() {
                     let vals = $test_vals;
                     let rect = <$rect_type>::new(
-                        <$vec_type>::new(vals[0], vals[1]),
-                        <$vec_type>::new(vals[2], vals[3]),
+                        <$vec_type>::from([vals[0], vals[1]]),
+                        <$vec_type>::from([vals[2], vals[3]]),
                     );
 
                     // Point inside rect - should not change rect for most cases
-                    let point_inside = <$vec_type>::new(vals[10], vals[11]);
+                    let point_inside = <$vec_type>::from([vals[10], vals[11]]);
                     let result1 = rect | point_inside;
 
                     // For union with point, we expand bounds if necessary
@@ -348,8 +348,8 @@ mod tests {
                         vals[11]
                     };
                     let expected1 = <$rect_type>::new(
-                        <$vec_type>::new(min_x, min_y),
-                        <$vec_type>::new(max_x, max_y),
+                        <$vec_type>::from([min_x, min_y]),
+                        <$vec_type>::from([max_x, max_y]),
                     );
                     assert_rect_eq(result1, expected1);
 
@@ -363,12 +363,12 @@ mod tests {
                 fn test_rect_intersection_with_rect() {
                     let vals = $test_vals;
                     let rect1 = <$rect_type>::new(
-                        <$vec_type>::new(vals[0], vals[1]),
-                        <$vec_type>::new(vals[4], vals[5]),
+                        <$vec_type>::from([vals[0], vals[1]]),
+                        <$vec_type>::from([vals[4], vals[5]]),
                     );
                     let rect2 = <$rect_type>::new(
-                        <$vec_type>::new(vals[6], vals[7]),
-                        <$vec_type>::new(vals[8], vals[9]),
+                        <$vec_type>::from([vals[6], vals[7]]),
+                        <$vec_type>::from([vals[8], vals[9]]),
                     );
 
                     let min_x = if vals[0] > vals[6] { vals[0] } else { vals[6] };
@@ -377,8 +377,8 @@ mod tests {
                     let max_y = if vals[5] < vals[9] { vals[5] } else { vals[9] };
 
                     let expected = <$rect_type>::new(
-                        <$vec_type>::new(min_x, min_y),
-                        <$vec_type>::new(max_x, max_y),
+                        <$vec_type>::from([min_x, min_y]),
+                        <$vec_type>::from([max_x, max_y]),
                     );
 
                     let intersection = rect1 & rect2;
@@ -394,15 +394,15 @@ mod tests {
                 fn test_rect_intersection_with_point() {
                     let vals = $test_vals;
                     let rect = <$rect_type>::new(
-                        <$vec_type>::new(vals[0], vals[1]),
-                        <$vec_type>::new(vals[4], vals[5]),
+                        <$vec_type>::from([vals[0], vals[1]]),
+                        <$vec_type>::from([vals[4], vals[5]]),
                     );
 
                     // Point - should create degenerate rect at point
-                    let point = <$vec_type>::new(vals[10], vals[11]);
+                    let point = <$vec_type>::from([vals[10], vals[11]]);
                     let expected = <$rect_type>::new(
-                        <$vec_type>::new(vals[10], vals[11]),
-                        <$vec_type>::new(vals[10], vals[11]),
+                        <$vec_type>::from([vals[10], vals[11]]),
+                        <$vec_type>::from([vals[10], vals[11]]),
                     );
                     let result = rect & point;
                     assert_rect_eq(result, expected);
@@ -421,9 +421,9 @@ mod tests {
                     // Add some points to build an AABB
                     let vals = $test_vals;
                     let points = vec![
-                        <$vec_type>::new(vals[0], vals[1]),
-                        <$vec_type>::new(vals[6], vals[7]),
-                        <$vec_type>::new(vals[12], vals[13]),
+                        <$vec_type>::from([vals[0], vals[1]]),
+                        <$vec_type>::from([vals[6], vals[7]]),
+                        <$vec_type>::from([vals[12], vals[13]]),
                     ];
 
                     for point in points.iter() {
@@ -449,19 +449,19 @@ mod tests {
                         .fold(vals[1], |a, b| if a > b { a } else { b });
 
                     let expected = <$rect_type>::new(
-                        <$vec_type>::new(min_x, min_y),
-                        <$vec_type>::new(max_x, max_y),
+                        <$vec_type>::from([min_x, min_y]),
+                        <$vec_type>::from([max_x, max_y]),
                     );
                     assert_rect_eq(rect, expected);
 
                     // Test center and extent of the built AABB
                     let center = rect.center();
                     let extent = rect.extent();
-                    let expected_center = <$vec_type>::new(
+                    let expected_center = <$vec_type>::from([
                         (min_x + max_x) / (2 as $lane_type),
                         (min_y + max_y) / (2 as $lane_type),
-                    );
-                    let expected_extent = <$vec_type>::new(max_x - min_x, max_y - min_y);
+                    ]);
+                    let expected_extent = <$vec_type>::from([max_x - min_x, max_y - min_y]);
                     assert_vec2_eq(center, expected_center);
                     assert_vec2_eq(extent, expected_extent);
                 }
@@ -514,9 +514,9 @@ mod tests {
                 }
 
                 fn assert_vec3_eq(a: $vec_type, b: $vec_type) {
-                    $assert_fn(a.x(), b.x());
-                    $assert_fn(a.y(), b.y());
-                    $assert_fn(a.z(), b.z());
+                    $assert_fn(a[0], b[0]);
+                    $assert_fn(a[1], b[1]);
+                    $assert_fn(a[2], b[2]);
                 }
 
                 fn assert_rect_eq(a: $rect_type, b: $rect_type) {
@@ -527,8 +527,8 @@ mod tests {
                 #[test]
                 fn test_rect_new() {
                     let vals = $test_vals;
-                    let min = <$vec_type>::new(vals[0], vals[1], vals[2]);
-                    let max = <$vec_type>::new(vals[3], vals[4], vals[5]);
+                    let min = <$vec_type>::from([vals[0], vals[1], vals[2]]);
+                    let max = <$vec_type>::from([vals[3], vals[4], vals[5]]);
                     let rect = <$rect_type>::new(min, max);
 
                     assert_vec3_eq(rect.min(), min);
@@ -538,8 +538,8 @@ mod tests {
                 #[test]
                 fn test_rect_accessors() {
                     let vals = $test_vals;
-                    let min = <$vec_type>::new(vals[0], vals[1], vals[2]);
-                    let max = <$vec_type>::new(vals[3], vals[4], vals[5]);
+                    let min = <$vec_type>::from([vals[0], vals[1], vals[2]]);
+                    let max = <$vec_type>::from([vals[3], vals[4], vals[5]]);
                     let rect = <$rect_type>::new(min, max);
 
                     assert_vec3_eq(rect.min(), min);
@@ -549,29 +549,32 @@ mod tests {
                 #[test]
                 fn test_rect_center() {
                     let vals = $test_vals;
-                    let min = <$vec_type>::new(vals[0], vals[1], vals[2]);
-                    let max = <$vec_type>::new(vals[6], vals[7], vals[8]);
+                    let min = <$vec_type>::from([vals[0], vals[1], vals[2]]);
+                    let max = <$vec_type>::from([vals[6], vals[7], vals[8]]);
                     let rect = <$rect_type>::new(min, max);
 
                     let center = rect.center();
-                    let expected = <$vec_type>::new(
+                    let expected = <$vec_type>::from([
                         (vals[0] + vals[6]) / (2 as $lane_type),
                         (vals[1] + vals[7]) / (2 as $lane_type),
                         (vals[2] + vals[8]) / (2 as $lane_type),
-                    );
+                    ]);
                     assert_vec3_eq(center, expected);
                 }
 
                 #[test]
                 fn test_rect_extent() {
                     let vals = $test_vals;
-                    let min = <$vec_type>::new(vals[0], vals[1], vals[2]);
-                    let max = <$vec_type>::new(vals[6], vals[7], vals[8]);
+                    let min = <$vec_type>::from([vals[0], vals[1], vals[2]]);
+                    let max = <$vec_type>::from([vals[6], vals[7], vals[8]]);
                     let rect = <$rect_type>::new(min, max);
 
                     let extent = rect.extent();
-                    let expected =
-                        <$vec_type>::new(vals[6] - vals[0], vals[7] - vals[1], vals[8] - vals[2]);
+                    let expected = <$vec_type>::from([
+                        vals[6] - vals[0],
+                        vals[7] - vals[1],
+                        vals[8] - vals[2],
+                    ]);
                     assert_vec3_eq(extent, expected);
                 }
 
@@ -580,18 +583,18 @@ mod tests {
                     let identity = <$rect_type>::union_identity();
 
                     // Union identity should have hi min and lo max
-                    $assert_fn(identity.min.x(), $hi_val);
-                    $assert_fn(identity.min.y(), $hi_val);
-                    $assert_fn(identity.min.z(), $hi_val);
-                    $assert_fn(identity.max.x(), $lo_val);
-                    $assert_fn(identity.max.y(), $lo_val);
-                    $assert_fn(identity.max.z(), $lo_val);
+                    $assert_fn(identity.min[0], $hi_val);
+                    $assert_fn(identity.min[1], $hi_val);
+                    $assert_fn(identity.min[2], $hi_val);
+                    $assert_fn(identity.max[0], $lo_val);
+                    $assert_fn(identity.max[1], $lo_val);
+                    $assert_fn(identity.max[2], $lo_val);
 
                     // Test that union with any AABB gives that AABB
                     let vals = $test_vals;
                     let test_rect = <$rect_type>::new(
-                        <$vec_type>::new(vals[0], vals[1], vals[2]),
-                        <$vec_type>::new(vals[3], vals[4], vals[5]),
+                        <$vec_type>::from([vals[0], vals[1], vals[2]]),
+                        <$vec_type>::from([vals[3], vals[4], vals[5]]),
                     );
                     let result = identity | test_rect;
                     assert_rect_eq(result, test_rect);
@@ -602,18 +605,18 @@ mod tests {
                     let identity = <$rect_type>::intersection_identity();
 
                     // Intersection identity should have lo min and hi max
-                    $assert_fn(identity.min.x(), $lo_val);
-                    $assert_fn(identity.min.y(), $lo_val);
-                    $assert_fn(identity.min.z(), $lo_val);
-                    $assert_fn(identity.max.x(), $hi_val);
-                    $assert_fn(identity.max.y(), $hi_val);
-                    $assert_fn(identity.max.z(), $hi_val);
+                    $assert_fn(identity.min[0], $lo_val);
+                    $assert_fn(identity.min[1], $lo_val);
+                    $assert_fn(identity.min[2], $lo_val);
+                    $assert_fn(identity.max[0], $hi_val);
+                    $assert_fn(identity.max[1], $hi_val);
+                    $assert_fn(identity.max[2], $hi_val);
 
                     // Test that intersection with any AABB gives that AABB
                     let vals = $test_vals;
                     let test_rect = <$rect_type>::new(
-                        <$vec_type>::new(vals[0], vals[1], vals[2]),
-                        <$vec_type>::new(vals[3], vals[4], vals[5]),
+                        <$vec_type>::from([vals[0], vals[1], vals[2]]),
+                        <$vec_type>::from([vals[3], vals[4], vals[5]]),
                     );
                     let result = identity & test_rect;
                     assert_rect_eq(result, test_rect);
@@ -623,12 +626,12 @@ mod tests {
                 fn test_rect_union_with_rect() {
                     let vals = $test_vals;
                     let rect1 = <$rect_type>::new(
-                        <$vec_type>::new(vals[0], vals[1], vals[2]),
-                        <$vec_type>::new(vals[3], vals[4], vals[5]),
+                        <$vec_type>::from([vals[0], vals[1], vals[2]]),
+                        <$vec_type>::from([vals[3], vals[4], vals[5]]),
                     );
                     let rect2 = <$rect_type>::new(
-                        <$vec_type>::new(vals[9], vals[10], vals[11]),
-                        <$vec_type>::new(vals[12], vals[13], vals[14]),
+                        <$vec_type>::from([vals[9], vals[10], vals[11]]),
+                        <$vec_type>::from([vals[12], vals[13], vals[14]]),
                     );
 
                     let min_x = if vals[0] < vals[9] { vals[0] } else { vals[9] };
@@ -659,8 +662,8 @@ mod tests {
                     };
 
                     let expected = <$rect_type>::new(
-                        <$vec_type>::new(min_x, min_y, min_z),
-                        <$vec_type>::new(max_x, max_y, max_z),
+                        <$vec_type>::from([min_x, min_y, min_z]),
+                        <$vec_type>::from([max_x, max_y, max_z]),
                     );
 
                     let union = rect1 | rect2;
@@ -676,12 +679,12 @@ mod tests {
                 fn test_rect_union_with_point() {
                     let vals = $test_vals;
                     let rect = <$rect_type>::new(
-                        <$vec_type>::new(vals[0], vals[1], vals[2]),
-                        <$vec_type>::new(vals[3], vals[4], vals[5]),
+                        <$vec_type>::from([vals[0], vals[1], vals[2]]),
+                        <$vec_type>::from([vals[3], vals[4], vals[5]]),
                     );
 
                     // Point - should expand bounds if necessary
-                    let point = <$vec_type>::new(vals[15], vals[16], vals[17]);
+                    let point = <$vec_type>::from([vals[15], vals[16], vals[17]]);
 
                     let min_x = if vals[0] < vals[15] {
                         vals[0]
@@ -715,8 +718,8 @@ mod tests {
                     };
 
                     let expected = <$rect_type>::new(
-                        <$vec_type>::new(min_x, min_y, min_z),
-                        <$vec_type>::new(max_x, max_y, max_z),
+                        <$vec_type>::from([min_x, min_y, min_z]),
+                        <$vec_type>::from([max_x, max_y, max_z]),
                     );
                     let result = rect | point;
                     assert_rect_eq(result, expected);
@@ -731,12 +734,12 @@ mod tests {
                 fn test_rect_intersection_with_rect() {
                     let vals = $test_vals;
                     let rect1 = <$rect_type>::new(
-                        <$vec_type>::new(vals[0], vals[1], vals[2]),
-                        <$vec_type>::new(vals[6], vals[7], vals[8]),
+                        <$vec_type>::from([vals[0], vals[1], vals[2]]),
+                        <$vec_type>::from([vals[6], vals[7], vals[8]]),
                     );
                     let rect2 = <$rect_type>::new(
-                        <$vec_type>::new(vals[9], vals[10], vals[11]),
-                        <$vec_type>::new(vals[12], vals[13], vals[14]),
+                        <$vec_type>::from([vals[9], vals[10], vals[11]]),
+                        <$vec_type>::from([vals[12], vals[13], vals[14]]),
                     );
 
                     let min_x = if vals[0] > vals[9] { vals[0] } else { vals[9] };
@@ -767,8 +770,8 @@ mod tests {
                     };
 
                     let expected = <$rect_type>::new(
-                        <$vec_type>::new(min_x, min_y, min_z),
-                        <$vec_type>::new(max_x, max_y, max_z),
+                        <$vec_type>::from([min_x, min_y, min_z]),
+                        <$vec_type>::from([max_x, max_y, max_z]),
                     );
 
                     let intersection = rect1 & rect2;
@@ -784,15 +787,15 @@ mod tests {
                 fn test_rect_intersection_with_point() {
                     let vals = $test_vals;
                     let rect = <$rect_type>::new(
-                        <$vec_type>::new(vals[0], vals[1], vals[2]),
-                        <$vec_type>::new(vals[6], vals[7], vals[8]),
+                        <$vec_type>::from([vals[0], vals[1], vals[2]]),
+                        <$vec_type>::from([vals[6], vals[7], vals[8]]),
                     );
 
                     // Point - should create degenerate rect at point
-                    let point = <$vec_type>::new(vals[15], vals[16], vals[17]);
+                    let point = <$vec_type>::from([vals[15], vals[16], vals[17]]);
                     let expected = <$rect_type>::new(
-                        <$vec_type>::new(vals[15], vals[16], vals[17]),
-                        <$vec_type>::new(vals[15], vals[16], vals[17]),
+                        <$vec_type>::from([vals[15], vals[16], vals[17]]),
+                        <$vec_type>::from([vals[15], vals[16], vals[17]]),
                     );
                     let result = rect & point;
                     assert_rect_eq(result, expected);
@@ -811,9 +814,9 @@ mod tests {
                     // Add some points to build an AABB
                     let vals = $test_vals;
                     let points = vec![
-                        <$vec_type>::new(vals[0], vals[1], vals[2]),
-                        <$vec_type>::new(vals[9], vals[10], vals[11]),
-                        <$vec_type>::new(vals[18], vals[19], vals[20]),
+                        <$vec_type>::from([vals[0], vals[1], vals[2]]),
+                        <$vec_type>::from([vals[9], vals[10], vals[11]]),
+                        <$vec_type>::from([vals[18], vals[19], vals[20]]),
                     ];
 
                     for point in points.iter() {
@@ -847,21 +850,21 @@ mod tests {
                         .fold(vals[2], |a, b| if a > b { a } else { b });
 
                     let expected = <$rect_type>::new(
-                        <$vec_type>::new(min_x, min_y, min_z),
-                        <$vec_type>::new(max_x, max_y, max_z),
+                        <$vec_type>::from([min_x, min_y, min_z]),
+                        <$vec_type>::from([max_x, max_y, max_z]),
                     );
                     assert_rect_eq(rect, expected);
 
                     // Test center and extent of the built AABB
                     let center = rect.center();
                     let extent = rect.extent();
-                    let expected_center = <$vec_type>::new(
+                    let expected_center = <$vec_type>::from([
                         (min_x + max_x) / (2 as $lane_type),
                         (min_y + max_y) / (2 as $lane_type),
                         (min_z + max_z) / (2 as $lane_type),
-                    );
+                    ]);
                     let expected_extent =
-                        <$vec_type>::new(max_x - min_x, max_y - min_y, max_z - min_z);
+                        <$vec_type>::from([max_x - min_x, max_y - min_y, max_z - min_z]);
                     assert_vec3_eq(center, expected_center);
                     assert_vec3_eq(extent, expected_extent);
                 }

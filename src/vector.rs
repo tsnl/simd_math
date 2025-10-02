@@ -8,26 +8,26 @@ pub trait SimdVector: Sized {
 }
 
 macro_rules! impl_float_simd_vec {
-    ($name:ident : $simd_ty:ty [ $lane_ty:ty ; $dim:expr ] { $($field_name:ident),+ } [ $($init:expr),+ ]) => {
-        impl_basic_simd_vec!($name : $simd_ty [ $lane_ty ; $dim ] { $($field_name),+ } [ $($init),+ ]);
+    ($name:ident : $simd_ty:ty [ $lane_ty:ty ; $dim:expr ]) => {
+        impl_basic_simd_vec!($name : $simd_ty [ $lane_ty ; $dim ]);
         impl_simd_vec_neg_method!($name : $simd_ty [ $lane_ty ; $dim ]);
         impl_simd_vec_float_methods!($name : $simd_ty [ $lane_ty ; $dim ]);
     }
 }
 macro_rules! impl_int_simd_vec {
-    ($name:ident : $simd_ty:ty [ $lane_ty:ty ; $dim:expr ] { $($field_name:ident),+ } [ $($init:expr),+ ]) => {
-        impl_basic_simd_vec!($name : $simd_ty [ $lane_ty ; $dim ] { $($field_name),+ } [ $($init),+ ]);
+    ($name:ident : $simd_ty:ty [ $lane_ty:ty ; $dim:expr ]) => {
+        impl_basic_simd_vec!($name : $simd_ty [ $lane_ty ; $dim ]);
         impl_simd_vec_neg_method!($name : $simd_ty [ $lane_ty ; $dim ]);
     };
 }
 macro_rules! impl_uint_simd_vec {
-    ($name:ident : $simd_ty:ty [ $lane_ty:ty ; $dim:expr ] { $($field_name:ident),+ } [ $($init:expr),+ ]) => {
-        impl_basic_simd_vec!($name : $simd_ty [ $lane_ty ; $dim ] { $($field_name),+ } [ $($init),+ ]);
+    ($name:ident : $simd_ty:ty [ $lane_ty:ty ; $dim:expr ]) => {
+        impl_basic_simd_vec!($name : $simd_ty [ $lane_ty ; $dim ]);
     }
 }
 
 macro_rules! impl_basic_simd_vec {
-    ($name:ident : $simd_ty:ty [ $lane_ty:ty ; $dim:expr ] { $($field_name:ident),+ } [ $($init:expr),+ ]) => {
+    ($name:ident : $simd_ty:ty [ $lane_ty:ty ; $dim:expr ]) => {
         #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
         pub struct $name(pub(crate) $simd_ty);
 
@@ -35,41 +35,35 @@ macro_rules! impl_basic_simd_vec {
             type LaneType = $lane_ty;
         }
 
-        impl_simd_vec_ctor_methods!($name : $simd_ty [ $lane_ty ; $dim ] { $($field_name),+ } [ $($init),+ ]);
+        impl_simd_vec_ctor_methods!($name : $simd_ty [ $lane_ty ; $dim ]);
         impl_simd_vec_base_methods!($name : $simd_ty [ $lane_ty ; $dim ]);
-        impl_simd_vec_field_methods!($name $lane_ty [ $($field_name),+ ] );
     };
 }
 
-macro_rules! help_apply_to_array {
-    ($func:expr ; $array:expr ; [ $_0:ident , $_1:ident , $_2:ident , $_3:ident ]) => {
-        $func($array[0], $array[1], $array[2], $array[3])
-    };
-    ($func:expr ; $array:expr ; [ $_0:ident , $_1:ident , $_2:ident ]) => {
-        $func($array[0], $array[1], $array[2])
-    };
-    ($func:expr ; $array:expr ; [ $_0:ident , $_1:ident ]) => {
-        $func($array[0], $array[1])
-    };
-}
 macro_rules! impl_simd_vec_ctor_methods {
-    ($name:ident : $simd_ty:ty [ $lane_ty:ty ; $dim:expr ] { $($field_name:ident),+ } [ $($init:expr),+ ]) => {
+    ($name:ident : $simd_ty:ty [ $lane_ty:ty ; $dim:expr ]) => {
+        // Splat scalar as SimdVecN
         impl $name {
-            #[inline]
-            pub const fn new($($field_name: $lane_ty),+) -> Self {
-                $name(<$simd_ty>::from_array([$($init),+]))
-            }
             #[inline]
             pub fn splat(value: $lane_ty) -> Self {
                 $name(<$simd_ty>::splat(value))
             }
         }
+
+        // Convert array into SimdVecN: SimdVecN::from([a1, a2, ..., aN])
         impl From<[$lane_ty; $dim]> for $name {
             #[inline]
             fn from(arr: [$lane_ty; $dim]) -> Self {
-                help_apply_to_array!($name::new ; arr ; [ $($field_name),+ ])
+                let full_arr = {
+                    let mut temp = [<$lane_ty>::ZERO; <$simd_ty>::LEN];
+                    temp[..$dim].copy_from_slice(&arr);
+                    temp
+                };
+                $name(<$simd_ty>::from_array(full_arr))
             }
         }
+
+        // Convert SimdVecN into array:
         impl From<$name> for [$lane_ty; $dim] {
             #[inline]
             fn from(it: $name) -> [$lane_ty; $dim] {
@@ -237,47 +231,17 @@ macro_rules! impl_simd_vec_float_methods {
     };
 }
 
-macro_rules! impl_simd_vec_field_methods {
-    ( $arg0:ident $lane_ty:ty [ $name0:ident ] ) => {
-        impl_simd_vec_field_methods!( $arg0 $lane_ty [ $name0 : 0 ] );
-    };
+impl_uint_simd_vec!(SimdUVec4: u32x4 [u32; 4]);
+impl_uint_simd_vec!(SimdUVec3: u32x4 [u32; 3]);
+impl_uint_simd_vec!(SimdUVec2: u32x2 [u32; 2]);
 
-    ( $arg0:ident $lane_ty:ty [ $name0:ident , $name1:ident ] ) => {
-        impl_simd_vec_field_methods!( $arg0 $lane_ty [ $name0 : 0 , $name1 : 1 ] );
-    };
+impl_int_simd_vec!(SimdIVec4: i32x4 [i32; 4] );
+impl_int_simd_vec!(SimdIVec3: i32x4 [i32; 3] );
+impl_int_simd_vec!(SimdIVec2: i32x2 [i32; 2] );
 
-    ( $arg0:ident $lane_ty:ty [ $name0:ident , $name1:ident , $name2:ident ] ) => {
-        impl_simd_vec_field_methods!( $arg0 $lane_ty [ $name0 : 0 , $name1 : 1 , $name2 : 2 ] );
-    };
-
-    ( $arg0:ident $lane_ty:ty [ $name0:ident , $name1:ident , $name2:ident , $name3:ident ] ) => {
-        impl_simd_vec_field_methods!( $arg0 $lane_ty [ $name0 : 0 , $name1 : 1 , $name2 : 2 , $name3 : 3 ] );
-    };
-
-    // Inner case:
-    ($vec_name:ident $lane_ty:ty [ $( $field_name:ident : $index:expr ),+ ]) => {
-        impl $vec_name {
-            $(
-                #[inline]
-                pub fn $field_name(self) -> $lane_ty {
-                    self.0[$index]
-                }
-            )+
-        }
-    };
-}
-
-impl_uint_simd_vec!(SimdUVec4: u32x4 [u32; 4] { x, y, z, w } [ x, y, z, w ]);
-impl_uint_simd_vec!(SimdUVec3: u32x4 [u32; 3] { x, y, z } [ x, y, z, 0 ]);
-impl_uint_simd_vec!(SimdUVec2: u32x2 [u32; 2] { x, y } [ x, y ]);
-
-impl_int_simd_vec!(SimdIVec4: i32x4 [i32; 4] { x, y, z, w } [ x, y, z, w ]);
-impl_int_simd_vec!(SimdIVec3: i32x4 [i32; 3] { x, y, z } [ x, y, z, 0 ]);
-impl_int_simd_vec!(SimdIVec2: i32x2 [i32; 2] { x, y } [ x, y ]);
-
-impl_float_simd_vec!(SimdVec4: f32x4 [f32; 4] { x, y, z, w } [ x, y, z, w ]);
-impl_float_simd_vec!(SimdVec3: f32x4 [f32; 3] { x, y, z } [ x, y, z, 0.0 ]);
-impl_float_simd_vec!(SimdVec2: f32x2 [f32; 2] { x, y } [ x, y ]);
+impl_float_simd_vec!(SimdVec4: f32x4 [f32; 4]);
+impl_float_simd_vec!(SimdVec3: f32x4 [f32; 3]);
+impl_float_simd_vec!(SimdVec2: f32x2 [f32; 2]);
 
 impl SimdVec2 {
     pub const ZERO: Self = Self(f32x2::from_array([0.0, 0.0]));
@@ -308,8 +272,8 @@ impl SimdVec2 {
     /// - u is in range [0, 1] (left to right across the texture)
     /// - v is in range [0, 1] (top to bottom of the texture)
     pub fn spherical_coords_angles_into_equirectangular_coords(self) -> Self {
-        let azimuth = self.x();
-        let elevation = self.y();
+        let azimuth = self[0];
+        let elevation = self[1];
 
         // Convert azimuth from [-π, π] to [0, 1]
         let u = (azimuth + std::f32::consts::PI) / (2.0 * std::f32::consts::PI);
@@ -318,13 +282,13 @@ impl SimdVec2 {
         // Note: we flip the v coordinate so that positive elevation maps to the top of the texture
         let v = 0.5 - (elevation / std::f32::consts::PI);
 
-        SimdVec2::new(u, v)
+        SimdVec2::from([u, v])
     }
 }
 
 impl SimdVec4 {
     pub fn into_vec3(self) -> SimdVec3 {
-        SimdVec3::new(self.x(), self.y(), self.z())
+        SimdVec3::from([self[0], self[1], self[2]])
     }
 }
 
@@ -335,20 +299,20 @@ impl SimdVec3 {
     /// - elevation: angle in the vertical plane, range [-π/2, π/2]
     /// - radius: distance from origin
     pub fn into_spherical_coords(self) -> Self {
-        let x = self.x();
-        let y = self.y();
-        let z = self.z();
+        let x = self[0];
+        let y = self[1];
+        let z = self[2];
 
         let radius = self.norm();
 
         if radius == 0.0 {
-            return SimdVec3::new(0.0, 0.0, 0.0);
+            return SimdVec3::from([0.0, 0.0, 0.0]);
         }
 
         let azimuth = z.atan2(x);
         let elevation = (y / radius).asin();
 
-        SimdVec3::new(azimuth, elevation, radius)
+        SimdVec3::from([azimuth, elevation, radius])
     }
 
     /// Cross product of two 3D vectors.
@@ -359,11 +323,11 @@ impl SimdVec3 {
         let a = self;
         let b = other;
 
-        let result_x = a.y() * b.z() - a.z() * b.y();
-        let result_y = a.z() * b.x() - a.x() * b.z();
-        let result_z = a.x() * b.y() - a.y() * b.x();
+        let result_x = a[1] * b[2] - a[2] * b[1];
+        let result_y = a[2] * b[0] - a[0] * b[2];
+        let result_z = a[0] * b[1] - a[1] * b[0];
 
-        SimdVec3::new(result_x, result_y, result_z)
+        SimdVec3::from([result_x, result_y, result_z])
     }
 }
 
@@ -374,27 +338,27 @@ mod simd_vec3_tests {
     #[test]
     fn test_cross() {
         // Test cross product of unit vectors
-        let x_axis = SimdVec3::new(1.0, 0.0, 0.0);
-        let y_axis = SimdVec3::new(0.0, 1.0, 0.0);
-        let z_axis = SimdVec3::new(0.0, 0.0, 1.0);
+        let x_axis = SimdVec3::from([1.0, 0.0, 0.0]);
+        let y_axis = SimdVec3::from([0.0, 1.0, 0.0]);
+        let z_axis = SimdVec3::from([0.0, 0.0, 1.0]);
 
         // Right-hand rule: x × y = z
         let cross_xy = x_axis.cross(y_axis);
-        assert!((cross_xy.x() - 0.0).abs() < 1e-6);
-        assert!((cross_xy.y() - 0.0).abs() < 1e-6);
-        assert!((cross_xy.z() - 1.0).abs() < 1e-6);
+        assert!((cross_xy[0] - 0.0).abs() < 1e-6);
+        assert!((cross_xy[1] - 0.0).abs() < 1e-6);
+        assert!((cross_xy[2] - 1.0).abs() < 1e-6);
 
         // y × z = x
         let cross_yz = y_axis.cross(z_axis);
-        assert!((cross_yz.x() - 1.0).abs() < 1e-6);
-        assert!((cross_yz.y() - 0.0).abs() < 1e-6);
-        assert!((cross_yz.z() - 0.0).abs() < 1e-6);
+        assert!((cross_yz[0] - 1.0).abs() < 1e-6);
+        assert!((cross_yz[1] - 0.0).abs() < 1e-6);
+        assert!((cross_yz[2] - 0.0).abs() < 1e-6);
 
         // z × x = y
         let cross_zx = z_axis.cross(x_axis);
-        assert!((cross_zx.x() - 0.0).abs() < 1e-6);
-        assert!((cross_zx.y() - 1.0).abs() < 1e-6);
-        assert!((cross_zx.z() - 0.0).abs() < 1e-6);
+        assert!((cross_zx[0] - 0.0).abs() < 1e-6);
+        assert!((cross_zx[1] - 1.0).abs() < 1e-6);
+        assert!((cross_zx[2] - 0.0).abs() < 1e-6);
     }
 }
 
@@ -405,113 +369,113 @@ mod spherical_coords_tests {
     const EPSILON: f32 = 1e-6;
 
     fn assert_vec3_near(a: SimdVec3, b: SimdVec3, epsilon: f32) {
-        assert!((a.x() - b.x()).abs() < epsilon, "x: {} vs {}", a.x(), b.x());
-        assert!((a.y() - b.y()).abs() < epsilon, "y: {} vs {}", a.y(), b.y());
-        assert!((a.z() - b.z()).abs() < epsilon, "z: {} vs {}", a.z(), b.z());
+        assert!((a[0] - b[0]).abs() < epsilon, "x: {} vs {}", a[0], b[0]);
+        assert!((a[1] - b[1]).abs() < epsilon, "y: {} vs {}", a[1], b[1]);
+        assert!((a[2] - b[2]).abs() < epsilon, "z: {} vs {}", a[2], b[2]);
     }
 
     fn assert_vec2_near(a: SimdVec2, b: SimdVec2, epsilon: f32) {
-        assert!((a.x() - b.x()).abs() < epsilon, "x: {} vs {}", a.x(), b.x());
-        assert!((a.y() - b.y()).abs() < epsilon, "y: {} vs {}", a.y(), b.y());
+        assert!((a[0] - b[0]).abs() < epsilon, "x: {} vs {}", a[0], b[0]);
+        assert!((a[1] - b[1]).abs() < epsilon, "y: {} vs {}", a[1], b[1]);
     }
 
     #[test]
     fn test_into_spherical_coords_basic_directions() {
         // Test positive X axis
-        let pos_x = SimdVec3::new(1.0, 0.0, 0.0);
+        let pos_x = SimdVec3::from([1.0, 0.0, 0.0]);
         let spherical = pos_x.into_spherical_coords();
-        assert_vec3_near(spherical, SimdVec3::new(0.0, 0.0, 1.0), EPSILON);
+        assert_vec3_near(spherical, SimdVec3::from([0.0, 0.0, 1.0]), EPSILON);
 
         // Test positive Z axis
-        let pos_z = SimdVec3::new(0.0, 0.0, 1.0);
+        let pos_z = SimdVec3::from([0.0, 0.0, 1.0]);
         let spherical = pos_z.into_spherical_coords();
         assert_vec3_near(
             spherical,
-            SimdVec3::new(std::f32::consts::FRAC_PI_2, 0.0, 1.0),
+            SimdVec3::from([std::f32::consts::FRAC_PI_2, 0.0, 1.0]),
             EPSILON,
         );
 
         // Test negative Z axis
-        let neg_z = SimdVec3::new(0.0, 0.0, -1.0);
+        let neg_z = SimdVec3::from([0.0, 0.0, -1.0]);
         let spherical = neg_z.into_spherical_coords();
         assert_vec3_near(
             spherical,
-            SimdVec3::new(-std::f32::consts::FRAC_PI_2, 0.0, 1.0),
+            SimdVec3::from([-std::f32::consts::FRAC_PI_2, 0.0, 1.0]),
             EPSILON,
         );
 
         // Test positive Y axis (up)
-        let pos_y = SimdVec3::new(0.0, 1.0, 0.0);
+        let pos_y = SimdVec3::from([0.0, 1.0, 0.0]);
         let spherical = pos_y.into_spherical_coords();
         assert_vec3_near(
             spherical,
-            SimdVec3::new(0.0, std::f32::consts::FRAC_PI_2, 1.0),
+            SimdVec3::from([0.0, std::f32::consts::FRAC_PI_2, 1.0]),
             EPSILON,
         );
 
         // Test negative Y axis (down)
-        let neg_y = SimdVec3::new(0.0, -1.0, 0.0);
+        let neg_y = SimdVec3::from([0.0, -1.0, 0.0]);
         let spherical = neg_y.into_spherical_coords();
         assert_vec3_near(
             spherical,
-            SimdVec3::new(0.0, -std::f32::consts::FRAC_PI_2, 1.0),
+            SimdVec3::from([0.0, -std::f32::consts::FRAC_PI_2, 1.0]),
             EPSILON,
         );
     }
 
     #[test]
     fn test_into_spherical_coords_zero_vector() {
-        let zero = SimdVec3::new(0.0, 0.0, 0.0);
+        let zero = SimdVec3::from([0.0, 0.0, 0.0]);
         let spherical = zero.into_spherical_coords();
-        assert_vec3_near(spherical, SimdVec3::new(0.0, 0.0, 0.0), EPSILON);
+        assert_vec3_near(spherical, SimdVec3::from([0.0, 0.0, 0.0]), EPSILON);
     }
 
     #[test]
     fn test_into_spherical_coords_magnitude() {
         // Test that magnitude is preserved
-        let vec = SimdVec3::new(3.0, 4.0, 0.0);
+        let vec = SimdVec3::from([3.0, 4.0, 0.0]);
         let spherical = vec.into_spherical_coords();
-        assert!((spherical.z() - 5.0).abs() < EPSILON); // 3-4-5 triangle
+        assert!((spherical[2] - 5.0).abs() < EPSILON); // 3-4-5 triangle
     }
 
     #[test]
     fn test_spherical_coords_angles_into_equirectangular_coords() {
         // Test center of texture (azimuth=0, elevation=0)
-        let center = SimdVec2::new(0.0, 0.0);
+        let center = SimdVec2::from([0.0, 0.0]);
         let uv = center.spherical_coords_angles_into_equirectangular_coords();
-        assert_vec2_near(uv, SimdVec2::new(0.5, 0.5), EPSILON);
+        assert_vec2_near(uv, SimdVec2::from([0.5, 0.5]), EPSILON);
 
         // Test positive azimuth (π/2, looking towards +Z)
-        let pos_azimuth = SimdVec2::new(std::f32::consts::FRAC_PI_2, 0.0);
+        let pos_azimuth = SimdVec2::from([std::f32::consts::FRAC_PI_2, 0.0]);
         let uv = pos_azimuth.spherical_coords_angles_into_equirectangular_coords();
-        assert_vec2_near(uv, SimdVec2::new(0.75, 0.5), EPSILON);
+        assert_vec2_near(uv, SimdVec2::from([0.75, 0.5]), EPSILON);
 
         // Test negative azimuth (-π/2, looking towards -Z)
-        let neg_azimuth = SimdVec2::new(-std::f32::consts::FRAC_PI_2, 0.0);
+        let neg_azimuth = SimdVec2::from([-std::f32::consts::FRAC_PI_2, 0.0]);
         let uv = neg_azimuth.spherical_coords_angles_into_equirectangular_coords();
-        assert_vec2_near(uv, SimdVec2::new(0.25, 0.5), EPSILON);
+        assert_vec2_near(uv, SimdVec2::from([0.25, 0.5]), EPSILON);
 
         // Test positive elevation (π/2, looking up)
-        let pos_elevation = SimdVec2::new(0.0, std::f32::consts::FRAC_PI_2);
+        let pos_elevation = SimdVec2::from([0.0, std::f32::consts::FRAC_PI_2]);
         let uv = pos_elevation.spherical_coords_angles_into_equirectangular_coords();
-        assert_vec2_near(uv, SimdVec2::new(0.5, 0.0), EPSILON);
+        assert_vec2_near(uv, SimdVec2::from([0.5, 0.0]), EPSILON);
 
         // Test negative elevation (-π/2, looking down)
-        let neg_elevation = SimdVec2::new(0.0, -std::f32::consts::FRAC_PI_2);
+        let neg_elevation = SimdVec2::from([0.0, -std::f32::consts::FRAC_PI_2]);
         let uv = neg_elevation.spherical_coords_angles_into_equirectangular_coords();
-        assert_vec2_near(uv, SimdVec2::new(0.5, 1.0), EPSILON);
+        assert_vec2_near(uv, SimdVec2::from([0.5, 1.0]), EPSILON);
     }
 
     #[test]
     fn test_spherical_coords_boundary_values() {
         // Test azimuth boundaries
-        let left_edge = SimdVec2::new(-std::f32::consts::PI, 0.0);
+        let left_edge = SimdVec2::from([-std::f32::consts::PI, 0.0]);
         let uv = left_edge.spherical_coords_angles_into_equirectangular_coords();
-        assert_vec2_near(uv, SimdVec2::new(0.0, 0.5), EPSILON);
+        assert_vec2_near(uv, SimdVec2::from([0.0, 0.5]), EPSILON);
 
-        let right_edge = SimdVec2::new(std::f32::consts::PI, 0.0);
+        let right_edge = SimdVec2::from([std::f32::consts::PI, 0.0]);
         let uv = right_edge.spherical_coords_angles_into_equirectangular_coords();
-        assert_vec2_near(uv, SimdVec2::new(1.0, 0.5), EPSILON);
+        assert_vec2_near(uv, SimdVec2::from([1.0, 0.5]), EPSILON);
     }
 }
 
@@ -535,7 +499,7 @@ mod vector_unit_tests {
         ($vec_type:ty, $lane_ty:ty, 2, $test_values:expr) => {
             #[test]
             fn test_new() {
-                let v = <$vec_type>::new($test_values[0], $test_values[1]);
+                let v = <$vec_type>::from([$test_values[0], $test_values[1]]);
                 assert_eq!(v[0], $test_values[0]);
                 assert_eq!(v[1], $test_values[1]);
             }
@@ -561,7 +525,7 @@ mod vector_unit_tests {
         ($vec_type:ty, $lane_ty:ty, 3, $test_values:expr) => {
             #[test]
             fn test_new() {
-                let v = <$vec_type>::new($test_values[0], $test_values[1], $test_values[2]);
+                let v = <$vec_type>::from([$test_values[0], $test_values[1], $test_values[2]]);
                 assert_eq!(v[0], $test_values[0]);
                 assert_eq!(v[1], $test_values[1]);
                 assert_eq!(v[2], $test_values[2]);
@@ -590,12 +554,12 @@ mod vector_unit_tests {
         ($vec_type:ty, $lane_ty:ty, 4, $test_values:expr) => {
             #[test]
             fn test_new() {
-                let v = <$vec_type>::new(
+                let v = <$vec_type>::from([
                     $test_values[0],
                     $test_values[1],
                     $test_values[2],
                     $test_values[3],
-                );
+                ]);
                 assert_eq!(v[0], $test_values[0]);
                 assert_eq!(v[1], $test_values[1]);
                 assert_eq!(v[2], $test_values[2]);
@@ -657,7 +621,7 @@ mod vector_unit_tests {
         ($vec_type:ty, 2, $test_values:expr) => {
             #[test]
             fn test_negation() {
-                let v = <$vec_type>::new($test_values[0], $test_values[1]);
+                let v = <$vec_type>::from([$test_values[0], $test_values[1]]);
                 let neg_v = -v;
                 assert_eq!(neg_v[0], -$test_values[0]);
                 assert_eq!(neg_v[1], -$test_values[1]);
@@ -666,7 +630,7 @@ mod vector_unit_tests {
         ($vec_type:ty, 3, $test_values:expr) => {
             #[test]
             fn test_negation() {
-                let v = <$vec_type>::new($test_values[0], $test_values[1], $test_values[2]);
+                let v = <$vec_type>::from([$test_values[0], $test_values[1], $test_values[2]]);
                 let neg_v = -v;
                 assert_eq!(neg_v[0], -$test_values[0]);
                 assert_eq!(neg_v[1], -$test_values[1]);
@@ -676,12 +640,12 @@ mod vector_unit_tests {
         ($vec_type:ty, 4, $test_values:expr) => {
             #[test]
             fn test_negation() {
-                let v = <$vec_type>::new(
+                let v = <$vec_type>::from([
                     $test_values[0],
                     $test_values[1],
                     $test_values[2],
                     $test_values[3],
-                );
+                ]);
                 let neg_v = -v;
                 assert_eq!(neg_v[0], -$test_values[0]);
                 assert_eq!(neg_v[1], -$test_values[1]);
@@ -695,14 +659,14 @@ mod vector_unit_tests {
         ($vec_type:ty, 2) => {
             #[test]
             fn test_norm() {
-                let v = <$vec_type>::new(3.0, 4.0);
+                let v = <$vec_type>::from([3.0, 4.0]);
                 assert_f32_near(v.norm_squared(), 25.0);
                 assert_f32_near(v.norm(), 5.0);
             }
 
             #[test]
             fn test_normalized() {
-                let v = <$vec_type>::new(3.0, 4.0);
+                let v = <$vec_type>::from([3.0, 4.0]);
                 let normalized = v.normalized().unwrap();
                 assert_f32_near(normalized.norm(), 1.0);
 
@@ -759,14 +723,14 @@ mod vector_unit_tests {
         ($vec_type:ty, 3) => {
             #[test]
             fn test_norm() {
-                let v = <$vec_type>::new(3.0, 4.0, 0.0);
+                let v = <$vec_type>::from([3.0, 4.0, 0.0]);
                 assert_f32_near(v.norm_squared(), 25.0);
                 assert_f32_near(v.norm(), 5.0);
             }
 
             #[test]
             fn test_normalized() {
-                let v = <$vec_type>::new(3.0, 4.0, 0.0);
+                let v = <$vec_type>::from([3.0, 4.0, 0.0]);
                 let normalized = v.normalized().unwrap();
                 assert_f32_near(normalized.norm(), 1.0);
 
@@ -829,14 +793,14 @@ mod vector_unit_tests {
         ($vec_type:ty, 4) => {
             #[test]
             fn test_norm() {
-                let v = <$vec_type>::new(3.0, 4.0, 0.0, 0.0);
+                let v = <$vec_type>::from([3.0, 4.0, 0.0, 0.0]);
                 assert_f32_near(v.norm_squared(), 25.0);
                 assert_f32_near(v.norm(), 5.0);
             }
 
             #[test]
             fn test_normalized() {
-                let v = <$vec_type>::new(3.0, 4.0, 0.0, 0.0);
+                let v = <$vec_type>::from([3.0, 4.0, 0.0, 0.0]);
                 let normalized = v.normalized().unwrap();
                 assert_f32_near(normalized.norm(), 1.0);
 
@@ -908,28 +872,28 @@ mod vector_unit_tests {
         ($vec_type:ty, [x: 0, y: 1]) => {
             #[test]
             fn test_field_accessors() {
-                let v = <$vec_type>::new(1.0, 2.0);
-                assert_eq!(v.x(), 1.0);
-                assert_eq!(v.y(), 2.0);
+                let v = <$vec_type>::from([1.0, 2.0]);
+                assert_eq!(v[0], 1.0);
+                assert_eq!(v[1], 2.0);
             }
         };
         ($vec_type:ty, [x: 0, y: 1, z: 2]) => {
             #[test]
             fn test_field_accessors() {
-                let v = <$vec_type>::new(1.0, 2.0, 3.0);
-                assert_eq!(v.x(), 1.0);
-                assert_eq!(v.y(), 2.0);
-                assert_eq!(v.z(), 3.0);
+                let v = <$vec_type>::from([1.0, 2.0, 3.0]);
+                assert_eq!(v[0], 1.0);
+                assert_eq!(v[1], 2.0);
+                assert_eq!(v[2], 3.0);
             }
         };
         ($vec_type:ty, [x: 0, y: 1, z: 2, w: 3]) => {
             #[test]
             fn test_field_accessors() {
-                let v = <$vec_type>::new(1.0, 2.0, 3.0, 4.0);
-                assert_eq!(v.x(), 1.0);
-                assert_eq!(v.y(), 2.0);
-                assert_eq!(v.z(), 3.0);
-                assert_eq!(v.w(), 4.0);
+                let v = <$vec_type>::from([1.0, 2.0, 3.0, 4.0]);
+                assert_eq!(v[0], 1.0);
+                assert_eq!(v[1], 2.0);
+                assert_eq!(v[2], 3.0);
+                assert_eq!(v[3], 4.0);
             }
         };
     }
@@ -1060,8 +1024,8 @@ mod vector_unit_tests {
         #[test]
         fn test_cross_additional() {
             // Test additional cross product cases beyond basic unit vectors
-            let v1 = SimdVec3::new(1.0, 2.0, 3.0);
-            let v2 = SimdVec3::new(4.0, 5.0, 6.0);
+            let v1 = SimdVec3::from([1.0, 2.0, 3.0]);
+            let v2 = SimdVec3::from([4.0, 5.0, 6.0]);
             let cross = v1.cross(v2);
 
             // Cross product should be perpendicular to both vectors
@@ -1069,8 +1033,8 @@ mod vector_unit_tests {
             assert_f32_near(cross.dot(v2), 0.0);
 
             // Test cross product with parallel vectors (should be zero)
-            let parallel1 = SimdVec3::new(1.0, 2.0, 3.0);
-            let parallel2 = SimdVec3::new(2.0, 4.0, 6.0);
+            let parallel1 = SimdVec3::from([1.0, 2.0, 3.0]);
+            let parallel2 = SimdVec3::from([2.0, 4.0, 6.0]);
             let zero_cross = parallel1.cross(parallel2);
             assert_f32_near(zero_cross.norm(), 0.0);
         }
@@ -1094,11 +1058,11 @@ mod vector_unit_tests {
 
         #[test]
         fn test_into_vec3() {
-            let v4 = SimdVec4::new(1.0, 2.0, 3.0, 4.0);
+            let v4 = SimdVec4::from([1.0, 2.0, 3.0, 4.0]);
             let v3 = v4.into_vec3();
-            assert_f32_near(v3.x(), 1.0);
-            assert_f32_near(v3.y(), 2.0);
-            assert_f32_near(v3.z(), 3.0);
+            assert_f32_near(v3[0], 1.0);
+            assert_f32_near(v3[1], 2.0);
+            assert_f32_near(v3[2], 3.0);
         }
     }
 
