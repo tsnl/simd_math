@@ -36,7 +36,7 @@ macro_rules! impl_basic_simd_vec {
         }
 
         impl_simd_vec_ctor_methods!($name : $simd_ty [ $lane_ty ; $dim ]);
-        impl_simd_vec_base_methods!($name : $simd_ty [ $lane_ty ; $dim ]);
+        impl_simd_vec_universal_methods!($name : $simd_ty [ $lane_ty ; $dim ]);
     };
 }
 
@@ -73,7 +73,7 @@ macro_rules! impl_simd_vec_ctor_methods {
     };
 }
 
-macro_rules! impl_simd_vec_base_methods {
+macro_rules! impl_simd_vec_universal_methods {
     ($name:ident : $simd_ty:ty [ $lane_ty:ty ; $dim:expr ]) => {
         impl Default for $name {
             #[inline]
@@ -595,14 +595,14 @@ mod vector_unit_tests {
         };
     }
 
-    macro_rules! test_simd_vec_base_methods_int {
+    macro_rules! test_simd_vec_universal_methods_int {
         ($vec_type:ty, $lane_ty:ty, $dim:expr, $test_values:expr) => {
             // Use regular base methods but with integer types that support Ord
-            test_simd_vec_base_methods!($vec_type, $lane_ty, $dim, $test_values);
+            test_simd_vec_universal_methods!($vec_type, $lane_ty, $dim, $test_values);
         };
     }
 
-    macro_rules! test_simd_vec_base_methods {
+    macro_rules! test_simd_vec_universal_methods {
         ($vec_type:ty, $lane_ty:ty, $dim:expr, $test_values:expr) => {
             #[test]
             fn test_basic_operations() {
@@ -995,7 +995,7 @@ mod vector_unit_tests {
         use super::*;
 
         test_simd_vec_ctor_methods!(SimdVec2, f32, 2, [1.0, 2.0, 3.0, 4.0]);
-        test_simd_vec_base_methods!(SimdVec2, f32, 2, [1.0, 2.0, 3.0, 4.0]);
+        test_simd_vec_universal_methods!(SimdVec2, f32, 2, [1.0, 2.0, 3.0, 4.0]);
         test_simd_vec_neg_method!(SimdVec2, 2, [1.0, -2.0, 3.0, 4.0]);
         test_simd_vec_float_methods!(SimdVec2, 2);
         test_simd_vec_field_methods!(SimdVec2, [x: 0, y: 1]);
@@ -1010,7 +1010,7 @@ mod vector_unit_tests {
         use super::*;
 
         test_simd_vec_ctor_methods!(SimdVec3, f32, 3, [1.0, 2.0, 3.0, 4.0]);
-        test_simd_vec_base_methods!(SimdVec3, f32, 3, [1.0, 2.0, 3.0, 2.0]);
+        test_simd_vec_universal_methods!(SimdVec3, f32, 3, [1.0, 2.0, 3.0, 2.0]);
         test_simd_vec_neg_method!(SimdVec3, 3, [1.0, -2.0, 3.0, 4.0]);
         test_simd_vec_float_methods!(SimdVec3, 3);
         test_simd_vec_field_methods!(SimdVec3, [x: 0, y: 1, z: 2]);
@@ -1044,7 +1044,7 @@ mod vector_unit_tests {
         use super::*;
 
         test_simd_vec_ctor_methods!(SimdVec4, f32, 4, [1.0, 2.0, 3.0, 4.0]);
-        test_simd_vec_base_methods!(SimdVec4, f32, 4, [1.0, 2.0, 3.0, 2.0]);
+        test_simd_vec_universal_methods!(SimdVec4, f32, 4, [1.0, 2.0, 3.0, 2.0]);
         test_simd_vec_neg_method!(SimdVec4, 4, [1.0, -2.0, 3.0, -4.0]);
         test_simd_vec_float_methods!(SimdVec4, 4);
         test_simd_vec_field_methods!(SimdVec4, [x: 0, y: 1, z: 2, w: 3]);
@@ -1070,21 +1070,21 @@ mod vector_unit_tests {
     mod simd_ivec2_tests {
         use super::*;
         test_simd_vec_ctor_methods!(SimdIVec2, i32, 2, [1, 2, 3, 4]);
-        test_simd_vec_base_methods_int!(SimdIVec2, i32, 2, [1, 2, 3, 2]);
+        test_simd_vec_universal_methods_int!(SimdIVec2, i32, 2, [1, 2, 3, 2]);
         test_simd_vec_neg_method!(SimdIVec2, 2, [1, -2, 3, 4]);
     }
 
     mod simd_ivec3_tests {
         use super::*;
         test_simd_vec_ctor_methods!(SimdIVec3, i32, 3, [1, 2, 3, 4]);
-        test_simd_vec_base_methods_int!(SimdIVec3, i32, 3, [1, 2, 3, 2]);
+        test_simd_vec_universal_methods_int!(SimdIVec3, i32, 3, [1, 2, 3, 2]);
         test_simd_vec_neg_method!(SimdIVec3, 3, [1, -2, 3, 4]);
     }
 
     mod simd_ivec4_tests {
         use super::*;
         test_simd_vec_ctor_methods!(SimdIVec4, i32, 4, [1, 2, 3, 4]);
-        test_simd_vec_base_methods_int!(SimdIVec4, i32, 4, [1, 2, 3, 2]);
+        test_simd_vec_universal_methods_int!(SimdIVec4, i32, 4, [1, 2, 3, 2]);
         test_simd_vec_neg_method!(SimdIVec4, 4, [1, -2, 3, -4]);
     }
 
@@ -1092,18 +1092,18 @@ mod vector_unit_tests {
     mod simd_uvec2_tests {
         use super::*;
         test_simd_vec_ctor_methods!(SimdUVec2, u32, 2, [1, 2, 3, 4]);
-        test_simd_vec_base_methods_int!(SimdUVec2, u32, 2, [5, 4, 3, 2]);
+        test_simd_vec_universal_methods_int!(SimdUVec2, u32, 2, [5, 4, 3, 2]);
     }
 
     mod simd_uvec3_tests {
         use super::*;
         test_simd_vec_ctor_methods!(SimdUVec3, u32, 3, [1, 2, 3, 4]);
-        test_simd_vec_base_methods_int!(SimdUVec3, u32, 3, [5, 4, 3, 2]);
+        test_simd_vec_universal_methods_int!(SimdUVec3, u32, 3, [5, 4, 3, 2]);
     }
 
     mod simd_uvec4_tests {
         use super::*;
         test_simd_vec_ctor_methods!(SimdUVec4, u32, 4, [1, 2, 3, 4]);
-        test_simd_vec_base_methods_int!(SimdUVec4, u32, 4, [5, 4, 3, 2]);
+        test_simd_vec_universal_methods_int!(SimdUVec4, u32, 4, [5, 4, 3, 2]);
     }
 }
