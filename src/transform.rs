@@ -82,14 +82,14 @@ mod simd_transform_tests {
     const EPSILON: f32 = 1e-6;
 
     fn assert_vec3_eq(a: SimdVec3, b: SimdVec3) {
-        let ax = a.x();
-        let bx = b.x();
+        let ax = a[0];
+        let bx = b[0];
         assert!((ax - bx).abs() < EPSILON, "x: {ax} != {bx}");
-        let ay = a.y();
-        let by = b.y();
+        let ay = a[1];
+        let by = b[1];
         assert!((ay - by).abs() < EPSILON, "y: {ay} != {by}");
-        let az = a.z();
-        let bz = b.z();
+        let az = a[2];
+        let bz = b[2];
         assert!((az - bz).abs() < EPSILON, "z: {az} != {bz}");
     }
 
@@ -120,8 +120,8 @@ mod simd_transform_tests {
 
     #[test]
     fn test_transform_new() {
-        let trans = SimdVec3::new(1.0, 2.0, 3.0);
-        let rot = SimdUnitQuat::from_axis_angle(SimdVec3::new(0.0, 0.0, 1.0), PI / 2.0);
+        let trans = SimdVec3::from([1.0, 2.0, 3.0]);
+        let rot = SimdUnitQuat::from_axis_angle(SimdVec3::from([0.0, 0.0, 1.0]), PI / 2.0);
         let t = SimdTransform::new(trans, rot);
         assert_vec3_eq(t.position, trans);
         assert_quat_eq(t.rotation, rot);
@@ -131,16 +131,16 @@ mod simd_transform_tests {
     fn test_transform_mul_transform() {
         let t_ident = SimdTransform::identity();
 
-        let trans1 = SimdVec3::new(1.0, 2.0, 3.0);
-        let rot1 = SimdUnitQuat::from_axis_angle(SimdVec3::new(0.0, 0.0, 1.0), PI / 2.0); // 90 deg Z rot
+        let trans1 = SimdVec3::from([1.0, 2.0, 3.0]);
+        let rot1 = SimdUnitQuat::from_axis_angle(SimdVec3::from([0.0, 0.0, 1.0]), PI / 2.0); // 90 deg Z rot
         let tf1 = SimdTransform::new(trans1, rot1);
 
         // Identity
         assert_transform_eq(tf1 * t_ident, tf1);
         assert_transform_eq(t_ident * tf1, tf1);
 
-        let trans2 = SimdVec3::new(10.0, 0.0, 0.0);
-        let rot2 = SimdUnitQuat::from_axis_angle(SimdVec3::new(1.0, 0.0, 0.0), PI); // 180 deg X rot
+        let trans2 = SimdVec3::from([10.0, 0.0, 0.0]);
+        let rot2 = SimdUnitQuat::from_axis_angle(SimdVec3::from([1.0, 0.0, 0.0]), PI); // 180 deg X rot
         let tf2 = SimdTransform::new(trans2, rot2);
 
         // Composition: T1 * T2
@@ -164,7 +164,7 @@ mod simd_transform_tests {
         // Let's verify the new_translation and new_rotation directly
         // rot1 * trans2: 90Z * (10,0,0) = (0,10,0)
         // trans1 + rot1*trans2 = (1,2,3) + (0,10,0) = (1,12,3)
-        assert_vec3_eq(composed_tf.position, SimdVec3::new(1.0, 12.0, 3.0));
+        assert_vec3_eq(composed_tf.position, SimdVec3::from([1.0, 12.0, 3.0]));
 
         // rot1: 90Z, rot2: 180X
         // (s1,0,0,z1) * (s2,x2,0,0) = [s1s2, s1x2, z1s2, z1x2] (simplified)
@@ -192,10 +192,10 @@ mod simd_transform_tests {
 
     #[test]
     fn test_transform_inverse_2() {
-        let axis = SimdVec3::new(0.0, 0.0, 1.0);
+        let axis = SimdVec3::from([0.0, 0.0, 1.0]);
         let angle = PI / 4.0;
         let t = SimdTransform::new(
-            SimdVec3::new(1.0, 2.0, 3.0),
+            SimdVec3::from([1.0, 2.0, 3.0]),
             SimdUnitQuat::from_axis_angle(axis, angle),
         );
         let inv_t = t.inverse();
@@ -205,15 +205,15 @@ mod simd_transform_tests {
     #[test]
     fn test_transform_mul_vec3() {
         // Test transform applied to vector (rotation + translation)
-        let translation = SimdVec3::new(10.0, 20.0, 30.0);
-        let rotation = SimdUnitQuat::from_axis_angle(SimdVec3::new(0.0, 0.0, 1.0), PI / 2.0); // 90 deg Z
+        let translation = SimdVec3::from([10.0, 20.0, 30.0]);
+        let rotation = SimdUnitQuat::from_axis_angle(SimdVec3::from([0.0, 0.0, 1.0]), PI / 2.0); // 90 deg Z
         let transform = SimdTransform::new(translation, rotation);
 
-        let point = SimdVec3::new(1.0, 0.0, 0.0);
+        let point = SimdVec3::from([1.0, 0.0, 0.0]);
         let transformed = transform * point;
 
         // First rotate (1,0,0) by 90deg Z -> (0,1,0), then translate by (10,20,30) -> (10,21,30)
-        let expected = SimdVec3::new(10.0, 21.0, 30.0);
+        let expected = SimdVec3::from([10.0, 21.0, 30.0]);
         assert_vec3_eq(transformed, expected);
 
         // Test with identity transform
@@ -229,6 +229,6 @@ mod simd_transform_tests {
         // Test with rotation-only transform
         let rotation_only = SimdTransform::new(SimdVec3::default(), rotation);
         let rotated = rotation_only * point;
-        assert_vec3_eq(rotated, SimdVec3::new(0.0, 1.0, 0.0));
+        assert_vec3_eq(rotated, SimdVec3::from([0.0, 1.0, 0.0]));
     }
 }

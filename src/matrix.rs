@@ -1,6 +1,9 @@
 use super::*;
 use std::ops::Mul;
 
+/// SimdMat4 is a 3x4 matrix represented as 4 SimdVec3 columns: the first three are the transformed basis
+/// vectors, and the fourth is the translation vector. This is sufficient for representing any
+/// affine transform in 3D space (rotation, scale, shear, translation).
 #[derive(Clone, Copy)]
 pub struct SimdMat4([SimdVec3; 4]);
 
@@ -13,30 +16,30 @@ impl Default for SimdMat4 {
 impl SimdMat4 {
     #[inline]
     pub const fn new(
-        im_x: SimdVec3,
-        im_y: SimdVec3,
-        im_z: SimdVec3,
+        im_v0: SimdVec3,
+        im_v1: SimdVec3,
+        im_v2: SimdVec3,
         translation: SimdVec3,
     ) -> Self {
-        SimdMat4([im_x, im_y, im_z, translation])
+        SimdMat4([im_v0, im_v1, im_v2, translation])
     }
 
     #[inline]
     pub fn identity() -> Self {
         SimdMat4([
-            SimdVec3::new(1.0, 0.0, 0.0),
-            SimdVec3::new(0.0, 1.0, 0.0),
-            SimdVec3::new(0.0, 0.0, 1.0),
-            SimdVec3::new(0.0, 0.0, 0.0),
+            SimdVec3::from([1.0, 0.0, 0.0]),
+            SimdVec3::from([0.0, 1.0, 0.0]),
+            SimdVec3::from([0.0, 0.0, 1.0]),
+            SimdVec3::from([0.0, 0.0, 0.0]),
         ])
     }
 
     #[inline]
     pub fn from_translation(translation: SimdVec3) -> Self {
         SimdMat4([
-            SimdVec3::new(1.0, 0.0, 0.0),
-            SimdVec3::new(0.0, 1.0, 0.0),
-            SimdVec3::new(0.0, 0.0, 1.0),
+            SimdVec3::from([1.0, 0.0, 0.0]),
+            SimdVec3::from([0.0, 1.0, 0.0]),
+            SimdVec3::from([0.0, 0.0, 1.0]),
             translation,
         ])
     }
@@ -71,21 +74,21 @@ impl From<SimdUnitQuat> for SimdMat4 {
         let sz = s * z;
 
         SimdMat4([
-            SimdVec3::new(
+            SimdVec3::from([
                 1.0 - 2.0 * (y2 + z2),
                 2.0 * (xy + sz), //
                 2.0 * (xz - sy), //
-            ),
-            SimdVec3::new(
+            ]),
+            SimdVec3::from([
                 2.0 * (xy - sz), //
                 1.0 - 2.0 * (x2 + z2),
                 2.0 * (yz + sx), //
-            ),
-            SimdVec3::new(
+            ]),
+            SimdVec3::from([
                 2.0 * (xz + sy), //
                 2.0 * (yz - sx), //
                 1.0 - 2.0 * (x2 + y2),
-            ),
+            ]),
             SimdVec3::default(),
         ])
     }
@@ -100,7 +103,7 @@ impl Mul<SimdVec3> for SimdMat4 {
     #[inline]
     fn mul(self, rhs: SimdVec3) -> Self::Output {
         let [i, j, k, t] = self.0;
-        i * rhs.x() + j * rhs.y() + k * rhs.z() + t
+        i * rhs[0] + j * rhs[1] + k * rhs[2] + t
     }
 }
 
@@ -147,14 +150,14 @@ mod simd_mat4_tests {
     const EPSILON: f32 = 1e-6;
 
     fn assert_vec3_eq(a: SimdVec3, b: SimdVec3) {
-        let ax = a.x();
-        let bx = b.x();
+        let ax = a[0];
+        let bx = b[0];
         assert!((ax - bx).abs() < EPSILON, "x: {ax} != {bx}");
-        let ay = a.y();
-        let by = b.y();
+        let ay = a[1];
+        let by = b[1];
         assert!((ay - by).abs() < EPSILON, "y: {ay} != {by}");
-        let az = a.z();
-        let bz = b.z();
+        let az = a[2];
+        let bz = b[2];
         assert!((az - bz).abs() < EPSILON, "z: {az} != {bz}");
     }
 
@@ -170,22 +173,22 @@ mod simd_mat4_tests {
         let m_default = SimdMat4::default();
         assert_mat4_eq(m_ident, m_default);
 
-        assert_vec3_eq(m_ident.0[0], SimdVec3::new(1.0, 0.0, 0.0));
-        assert_vec3_eq(m_ident.0[1], SimdVec3::new(0.0, 1.0, 0.0));
-        assert_vec3_eq(m_ident.0[2], SimdVec3::new(0.0, 0.0, 1.0));
-        assert_vec3_eq(m_ident.0[3], SimdVec3::new(0.0, 0.0, 0.0));
+        assert_vec3_eq(m_ident.0[0], SimdVec3::from([1.0, 0.0, 0.0]));
+        assert_vec3_eq(m_ident.0[1], SimdVec3::from([0.0, 1.0, 0.0]));
+        assert_vec3_eq(m_ident.0[2], SimdVec3::from([0.0, 0.0, 1.0]));
+        assert_vec3_eq(m_ident.0[3], SimdVec3::from([0.0, 0.0, 0.0]));
     }
 
     #[test]
     fn test_mat4_new_and_constructors() {
-        let t = SimdVec3::new(1.0, 2.0, 3.0);
+        let t = SimdVec3::from([1.0, 2.0, 3.0]);
         let m_trans = SimdMat4::from_translation(t);
         assert_vec3_eq(m_trans.0[3], t);
-        assert_vec3_eq(m_trans.0[0], SimdVec3::new(1.0, 0.0, 0.0));
+        assert_vec3_eq(m_trans.0[0], SimdVec3::from([1.0, 0.0, 0.0]));
 
-        let ix = SimdVec3::new(1.0, 0.0, 0.0);
-        let iy = SimdVec3::new(0.0, 1.0, 0.0);
-        let iz = SimdVec3::new(0.0, 0.0, 1.0);
+        let ix = SimdVec3::from([1.0, 0.0, 0.0]);
+        let iy = SimdVec3::from([0.0, 1.0, 0.0]);
+        let iz = SimdVec3::from([0.0, 0.0, 1.0]);
         let m_rot = SimdMat4::from_rotation(ix, iy, iz);
         assert_vec3_eq(m_rot.0[0], ix);
         assert_vec3_eq(m_rot.0[1], iy);
@@ -207,7 +210,7 @@ mod simd_mat4_tests {
         assert_mat4_eq(m_ident_from_q, SimdMat4::identity());
 
         // 90-degree rotation around Z-axis
-        let q_rot_z90 = SimdUnitQuat::from_axis_angle(SimdVec3::new(0.0, 0.0, 1.0), PI / 2.0);
+        let q_rot_z90 = SimdUnitQuat::from_axis_angle(SimdVec3::from([0.0, 0.0, 1.0]), PI / 2.0);
         let m_rot_z90 = SimdMat4::from(q_rot_z90);
 
         // Expected matrix for 90-deg Z rotation:
@@ -221,10 +224,10 @@ mod simd_mat4_tests {
         //  0  0  1  0
         //  0  0  0  1
         let expected_m_rot_z90 = SimdMat4::new(
-            SimdVec3::new(0.0, 1.0, 0.0), // Column X (after rotation, original X becomes Y)
-            SimdVec3::new(-1.0, 0.0, 0.0), // Column Y (original Y becomes -X)
-            SimdVec3::new(0.0, 0.0, 1.0), // Column Z (Z remains Z)
-            SimdVec3::default(),          // Translation
+            SimdVec3::from([0.0, 1.0, 0.0]), // Column X (after rotation, original X becomes Y)
+            SimdVec3::from([-1.0, 0.0, 0.0]), // Column Y (original Y becomes -X)
+            SimdVec3::from([0.0, 0.0, 1.0]), // Column Z (Z remains Z)
+            SimdVec3::default(),             // Translation
         );
         assert_mat4_eq(m_rot_z90, expected_m_rot_z90);
     }
@@ -232,37 +235,37 @@ mod simd_mat4_tests {
     #[test]
     fn test_mat4_mul_vec3() {
         let m_ident = SimdMat4::identity();
-        let v = SimdVec3::new(1.0, 2.0, 3.0);
+        let v = SimdVec3::from([1.0, 2.0, 3.0]);
         assert_vec3_eq(m_ident * v, v);
 
-        let t = SimdVec3::new(10.0, 20.0, 30.0);
+        let t = SimdVec3::from([10.0, 20.0, 30.0]);
         let m_trans = SimdMat4::from_translation(t);
         assert_vec3_eq(m_trans * v, v + t);
 
         // Rotation: 90 deg around Z
-        let q_rot_z90 = SimdUnitQuat::from_axis_angle(SimdVec3::new(0.0, 0.0, 1.0), PI / 2.0);
+        let q_rot_z90 = SimdUnitQuat::from_axis_angle(SimdVec3::from([0.0, 0.0, 1.0]), PI / 2.0);
         let m_rot_z90 = SimdMat4::from(q_rot_z90);
         // (1,2,3) rotated by 90 deg around Z -> (-2,1,3)
-        assert_vec3_eq(m_rot_z90 * v, SimdVec3::new(-2.0, 1.0, 3.0));
+        assert_vec3_eq(m_rot_z90 * v, SimdVec3::from([-2.0, 1.0, 3.0]));
 
         // Combined rotation and translation
         let m_combined = m_trans * m_rot_z90; // Rotate then translate
         let rotated_v = m_rot_z90 * v;
         let translated_rotated_v = m_trans * rotated_v;
         assert_vec3_eq(m_combined * v, translated_rotated_v);
-        assert_vec3_eq(m_combined * v, SimdVec3::new(-2.0, 1.0, 3.0) + t);
+        assert_vec3_eq(m_combined * v, SimdVec3::from([-2.0, 1.0, 3.0]) + t);
     }
 
     #[test]
     fn test_mat4_mul_mat4() {
         let m_ident = SimdMat4::identity();
-        let m_a = SimdMat4::from_translation(SimdVec3::new(1.0, 2.0, 3.0));
+        let m_a = SimdMat4::from_translation(SimdVec3::from([1.0, 2.0, 3.0]));
         assert_mat4_eq(m_ident * m_a, m_a);
         assert_mat4_eq(m_a * m_ident, m_a);
 
-        let t1 = SimdVec3::new(1.0, 2.0, 3.0);
+        let t1 = SimdVec3::from([1.0, 2.0, 3.0]);
         let m_t1 = SimdMat4::from_translation(t1);
-        let t2 = SimdVec3::new(10.0, 20.0, 30.0);
+        let t2 = SimdVec3::from([10.0, 20.0, 30.0]);
         let m_t2 = SimdMat4::from_translation(t2);
 
         // M_t1 * M_t2 should result in a translation by t1 + t2
@@ -271,9 +274,9 @@ mod simd_mat4_tests {
         assert_mat4_eq(m_t1_t2, expected_m_trans_sum);
 
         // Rotation matrices
-        let q_rot_z90 = SimdUnitQuat::from_axis_angle(SimdVec3::new(0.0, 0.0, 1.0), PI / 2.0);
+        let q_rot_z90 = SimdUnitQuat::from_axis_angle(SimdVec3::from([0.0, 0.0, 1.0]), PI / 2.0);
         let m_rot_z90 = SimdMat4::from(q_rot_z90);
-        let q_rot_x90 = SimdUnitQuat::from_axis_angle(SimdVec3::new(1.0, 0.0, 0.0), PI / 2.0);
+        let q_rot_x90 = SimdUnitQuat::from_axis_angle(SimdVec3::from([1.0, 0.0, 0.0]), PI / 2.0);
         let m_rot_x90 = SimdMat4::from(q_rot_x90);
 
         // M_rot_x90 * M_rot_z90 (rotate by Z then by X)
@@ -285,19 +288,19 @@ mod simd_mat4_tests {
         assert_mat4_eq(m_combined_rot, m_expected_combined_rot);
 
         // Test with a vector
-        let v = SimdVec3::new(1.0, 0.0, 0.0);
+        let v = SimdVec3::from([1.0, 0.0, 0.0]);
         // (1,0,0) -> Z-rot -> (0,1,0) -> X-rot -> (0,0,1)
-        assert_vec3_eq(m_combined_rot * v, SimdVec3::new(0.0, 0.0, 1.0));
+        assert_vec3_eq(m_combined_rot * v, SimdVec3::from([0.0, 0.0, 1.0]));
     }
 
     #[test]
     fn test_mat4_mul_f32x4() {
         // Test matrix multiplication with f32x4 (internal helper)
         let m = SimdMat4::new(
-            SimdVec3::new(1.0, 0.0, 0.0),    // X basis
-            SimdVec3::new(0.0, 1.0, 0.0),    // Y basis
-            SimdVec3::new(0.0, 0.0, 1.0),    // Z basis
-            SimdVec3::new(10.0, 20.0, 30.0), // Translation
+            SimdVec3::from([1.0, 0.0, 0.0]),    // X basis
+            SimdVec3::from([0.0, 1.0, 0.0]),    // Y basis
+            SimdVec3::from([0.0, 0.0, 1.0]),    // Z basis
+            SimdVec3::from([10.0, 20.0, 30.0]), // Translation
         );
 
         let vec4 = f32x4::from_array([2.0, 3.0, 4.0, 1.0]);

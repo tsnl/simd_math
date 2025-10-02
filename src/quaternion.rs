@@ -142,14 +142,14 @@ mod simd_unit_quat_tests {
     }
 
     fn assert_vec3_eq(a: SimdVec3, b: SimdVec3) {
-        let ax = a.x();
-        let bx = b.x();
+        let ax = a[0];
+        let bx = b[0];
         assert!((ax - bx).abs() < EPSILON, "x: {ax} != {bx}");
-        let ay = a.y();
-        let by = b.y();
+        let ay = a[1];
+        let by = b[1];
         assert!((ay - by).abs() < EPSILON, "y: {ay} != {by}");
-        let az = a.z();
-        let bz = b.z();
+        let az = a[2];
+        let bz = b[2];
         assert!((az - bz).abs() < EPSILON, "z: {az} != {bz}");
     }
 
@@ -186,7 +186,7 @@ mod simd_unit_quat_tests {
     #[test]
     fn test_quat_from_axis_angle() {
         // 90 degree rotation around Z axis
-        let axis = SimdVec3::new(0.0, 0.0, 1.0);
+        let axis = SimdVec3::from([0.0, 0.0, 1.0]);
         let angle = PI / 2.0;
         let q = SimdUnitQuat::from_axis_angle(axis, angle);
         // s = cos(pi/4), x=0, y=0, z = sin(pi/4)
@@ -195,7 +195,7 @@ mod simd_unit_quat_tests {
         assert_quat_eq(q, SimdUnitQuat::new(expected_s, 0.0, 0.0, expected_z));
 
         // 180 degree rotation around Y axis
-        let axis = SimdVec3::new(0.0, 1.0, 0.0);
+        let axis = SimdVec3::from([0.0, 1.0, 0.0]);
         let angle = PI;
         let q = SimdUnitQuat::from_axis_angle(axis, angle);
         // s = cos(pi/2) = 0, x=0, y=sin(pi/2)=1, z=0
@@ -205,12 +205,12 @@ mod simd_unit_quat_tests {
     #[test]
     #[should_panic]
     fn test_quat_from_axis_angle_zero_axis() {
-        SimdUnitQuat::from_axis_angle(SimdVec3::new(0.0, 0.0, 0.0), PI / 2.0);
+        SimdUnitQuat::from_axis_angle(SimdVec3::from([0.0, 0.0, 0.0]), PI / 2.0);
     }
 
     #[test]
     fn test_quat_conjugate_inverse() {
-        let q = SimdUnitQuat::from_axis_angle(SimdVec3::new(1.0, 2.0, 3.0), PI / 3.0);
+        let q = SimdUnitQuat::from_axis_angle(SimdVec3::from([1.0, 2.0, 3.0]), PI / 3.0);
         let q_conj = q.conjugate();
         let q_inv = q.inverse();
 
@@ -235,19 +235,19 @@ mod simd_unit_quat_tests {
         let q = SimdUnitQuat::new(s, x, y, z);
 
         assert_f32_eq(q.real(), s);
-        assert_vec3_eq(q.imag(), SimdVec3::new(x, y, z));
+        assert_vec3_eq(q.imag(), SimdVec3::from([x, y, z]));
     }
 
     #[test]
     fn test_quat_mul_quat() {
         // Identity * q = q
-        let q = SimdUnitQuat::from_axis_angle(SimdVec3::new(1.0, 1.0, 1.0), PI / 4.0);
+        let q = SimdUnitQuat::from_axis_angle(SimdVec3::from([1.0, 1.0, 1.0]), PI / 4.0);
         assert_quat_eq(SimdUnitQuat::default() * q, q);
         assert_quat_eq(q * SimdUnitQuat::default(), q);
 
         // Rotation by q1 then q2 is q2 * q1
         // 90 deg around Z: q_z = [cos(pi/4), 0, 0, sin(pi/4)]
-        let q_z = SimdUnitQuat::from_axis_angle(SimdVec3::new(0.0, 0.0, 1.0), PI / 2.0);
+        let q_z = SimdUnitQuat::from_axis_angle(SimdVec3::from([0.0, 0.0, 1.0]), PI / 2.0);
         assert_quat_eq(
             q_z,
             SimdUnitQuat(f32x4::from_array([
@@ -258,7 +258,7 @@ mod simd_unit_quat_tests {
             ])),
         );
         // 90 deg around X: q_x = [cos(pi/4), sin(pi/4), 0, 0]
-        let q_x = SimdUnitQuat::from_axis_angle(SimdVec3::new(1.0, 0.0, 0.0), PI / 2.0);
+        let q_x = SimdUnitQuat::from_axis_angle(SimdVec3::from([1.0, 0.0, 0.0]), PI / 2.0);
         assert_quat_eq(
             q_x,
             SimdUnitQuat(f32x4::from_array([
@@ -273,37 +273,38 @@ mod simd_unit_quat_tests {
         // Then rotate (0,1,0) by q_x -> (0,0,1)
         // So (q_x * q_z) * (1,0,0) -> (0,0,1)
 
-        let v = SimdVec3::new(1.0, 0.0, 0.0);
+        let v = SimdVec3::from([1.0, 0.0, 0.0]);
         let rotated_v_manual = q_x * (q_z * v);
 
         let q_combined = q_x * q_z;
         let rotated_v_combined = q_combined * v;
 
         assert_vec3_eq(rotated_v_manual, rotated_v_combined);
-        assert_vec3_eq(rotated_v_combined, SimdVec3::new(0.0, 0.0, 1.0));
+        assert_vec3_eq(rotated_v_combined, SimdVec3::from([0.0, 0.0, 1.0]));
     }
 
     #[test]
     fn test_quat_mul_vec3_rotation() {
         // Rotate i=(1,0,0) by 90deg around Z-axis -> j=(0,1,0)
-        let q_rot_z90 = SimdUnitQuat::from_axis_angle(SimdVec3::new(0.0, 0.0, 1.0), PI / 2.0);
-        let i = SimdVec3::new(1.0, 0.0, 0.0);
-        let j = SimdVec3::new(0.0, 1.0, 0.0);
+        let q_rot_z90 = SimdUnitQuat::from_axis_angle(SimdVec3::from([0.0, 0.0, 1.0]), PI / 2.0);
+        let i = SimdVec3::from([1.0, 0.0, 0.0]);
+        let j = SimdVec3::from([0.0, 1.0, 0.0]);
         assert_vec3_eq(q_rot_z90 * i, j);
 
         // Rotate j=(0,1,0) by 90deg around X-axis -> k=(0,0,1)
-        let q_rot_x90 = SimdUnitQuat::from_axis_angle(SimdVec3::new(1.0, 0.0, 0.0), PI / 2.0);
-        let k = SimdVec3::new(0.0, 0.0, 1.0);
+        let q_rot_x90 = SimdUnitQuat::from_axis_angle(SimdVec3::from([1.0, 0.0, 0.0]), PI / 2.0);
+        let k = SimdVec3::from([0.0, 0.0, 1.0]);
         assert_vec3_eq(q_rot_x90 * j, k);
 
         // Rotate k=(0,0,1) by 90deg around Y-axis -> i=(1,0,0)
-        let q_rot_y90 = SimdUnitQuat::from_axis_angle(SimdVec3::new(0.0, 1.0, 0.0), PI / 2.0);
+        let q_rot_y90 = SimdUnitQuat::from_axis_angle(SimdVec3::from([0.0, 1.0, 0.0]), PI / 2.0);
         assert_vec3_eq(q_rot_y90 * k, i);
 
         // Rotate (1,1,0) by -90deg around Z-axis -> (1,-1,0) (normalized)
-        let v_in = SimdVec3::new(1.0, 1.0, 0.0).normalized().unwrap();
-        let q_rot_z_neg90 = SimdUnitQuat::from_axis_angle(SimdVec3::new(0.0, 0.0, 1.0), -PI / 2.0);
-        let v_expected = SimdVec3::new(1.0, -1.0, 0.0).normalized().unwrap();
+        let v_in = SimdVec3::from([1.0, 1.0, 0.0]).normalized().unwrap();
+        let q_rot_z_neg90 =
+            SimdUnitQuat::from_axis_angle(SimdVec3::from([0.0, 0.0, 1.0]), -PI / 2.0);
+        let v_expected = SimdVec3::from([1.0, -1.0, 0.0]).normalized().unwrap();
         assert_vec3_eq(q_rot_z_neg90 * v_in, v_expected);
     }
 
@@ -331,7 +332,7 @@ mod simd_unit_quat_tests {
         assert_quat_eq(identity, SimdUnitQuat::new(1.0, 0.0, 0.0, 0.0));
 
         // Identity quaternion should not change any vector when rotating
-        let test_vector = SimdVec3::new(1.0, 2.0, 3.0);
+        let test_vector = SimdVec3::from([1.0, 2.0, 3.0]);
         let rotated = identity * test_vector;
         assert_vec3_eq(rotated, test_vector);
     }
