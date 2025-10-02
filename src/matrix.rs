@@ -1,6 +1,9 @@
 use super::*;
 use std::ops::Mul;
 
+/// SimdMat4 is a 3x4 matrix represented as 4 SimdVec3 columns: the first three are the transformed basis
+/// vectors, and the fourth is the translation vector. This is sufficient for representing any
+/// affine transform in 3D space (rotation, scale, shear, translation).
 #[derive(Clone, Copy)]
 pub struct SimdMat4([SimdVec3; 4]);
 
@@ -13,12 +16,12 @@ impl Default for SimdMat4 {
 impl SimdMat4 {
     #[inline]
     pub const fn new(
-        im_x: SimdVec3,
-        im_y: SimdVec3,
-        im_z: SimdVec3,
+        im_v0: SimdVec3,
+        im_v1: SimdVec3,
+        im_v2: SimdVec3,
         translation: SimdVec3,
     ) -> Self {
-        SimdMat4([im_x, im_y, im_z, translation])
+        SimdMat4([im_v0, im_v1, im_v2, translation])
     }
 
     #[inline]
