@@ -145,9 +145,6 @@ jobs:
       - name: Build package
         run: cargo build --release
 
-      - name: Dry run publish
-        run: cargo publish --dry-run
-
       - name: Configure git
         if: ${{ !github.event.inputs.dry_run }}
         run: |
@@ -162,7 +159,10 @@ jobs:
           git tag "${{ env.TAG_NAME }}"
           echo "Created commit and tag for ${{ env.TAG_NAME }}"
 
-      - name: Push changes
+      - name: Dry run publish
+        run: cargo publish --dry-run
+
+      - name: Push changes since dry run publish succeeded
         if: ${{ !github.event.inputs.dry_run }}
         run: |
           git push origin ${{ github.event.inputs.branch }}
