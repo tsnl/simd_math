@@ -26,6 +26,11 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
+# Grant permissions for GITHUB_TOKEN (alternative to PAT)
+permissions:
+  contents: write
+  pull-requests: read
+
 jobs:
   publish:
     name: Publish Package
