@@ -59,16 +59,41 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
+      - name: Cache cargo tools
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin
+          key: cargo-tools-${{ runner.os }}-semver-bump-1.0.1-tomato-toml-1.0.0
+
       - name: Install cargo tools
         run: |
-          cargo install semver-bump
-          cargo install tomato-toml
+          if ! command -v semver-bump &> /dev/null; then
+            cargo install semver-bump --version 1.0.1
+          fi
+          if ! command -v tomato-toml &> /dev/null; then
+            cargo install tomato-toml --version 1.0.0
+          fi
 
-      - name: Get current version
-        id: current_version
+      - name: Validate tokens
         run: |
+          if [ -z "${{ secrets.CARGO_REGISTRY_TOKEN }}" ]; then
+            echo "⚠️  CARGO_REGISTRY_TOKEN secret is not set"
+            exit 1
+          fi
+          if [ -z "${{ secrets.PAT_TOKEN }}" ]; then
+            echo "⚠️  PAT_TOKEN secret is not set"
+            exit 1
+          fi
+          echo "✅ All required tokens are configured"
+
+      - name: Get package info
+        id: package_info
+        run: |
+          PACKAGE_NAME=$(tomato get package.name Cargo.toml)
           CURRENT_VERSION=$(tomato get package.version Cargo.toml)
+          echo "name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
           echo "current=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "Package: $PACKAGE_NAME"
           echo "Current version: $CURRENT_VERSION"
 
       - name: Check if tag already exists
@@ -96,7 +121,7 @@ jobs:
 
       - name: Update Cargo.lock
         run: |
-          cargo update -p simd_math
+          cargo update -p ${{ steps.package_info.outputs.name }}
           echo "Updated Cargo.lock"
 
       - name: Verify version change
@@ -146,9 +171,29 @@ jobs:
 
       - name: Publish to crates.io
         if: ${{ !github.event.inputs.dry_run && github.event.inputs.branch == 'main' }}
+        id: publish
         run: cargo publish
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        continue-on-error: true
+
+      - name: Rollback on publish failure
+        if: ${{ !github.event.inputs.dry_run && github.event.inputs.branch == 'main' && steps.publish.outcome == 'failure' }}
+        run: |
+          echo "🔄 Publishing failed, rolling back changes..."
+
+          # Delete the tag locally and remotely
+          git tag -d "${{ env.TAG_NAME }}"
+          git push origin --delete "${{ env.TAG_NAME }}" || echo "Tag may not exist on remote"
+
+          # Reset to previous commit (undo version bump commit)
+          git reset --hard HEAD~1
+
+          # Force push to revert the commit on main
+          git push --force-with-lease origin ${{ github.event.inputs.branch }}
+
+          echo "❌ Rollback completed. Version bump and tag have been reverted."
+          exit 1
 
       - name: Skip publish (non-main branch)
         if: ${{ !github.event.inputs.dry_run && github.event.inputs.branch != 'main' }}
@@ -161,8 +206,9 @@ jobs:
         if: ${{ github.event.inputs.dry_run }}
         run: |
           echo "🔍 DRY RUN COMPLETED"
+          echo "Package: ${{ steps.package_info.outputs.name }}"
           echo "Branch: ${{ github.event.inputs.branch }}"
-          echo "Version would be bumped from ${{ steps.current_version.outputs.current }} to ${{ env.NEW_VERSION }}"
+          echo "Version would be bumped from ${{ steps.package_info.outputs.current }} to ${{ env.NEW_VERSION }}"
           echo "Changes would be committed and tagged as ${{ env.TAG_NAME }}"
           if [ "${{ github.event.inputs.branch }}" = "main" ]; then
             echo "Package would be published to crates.io"
