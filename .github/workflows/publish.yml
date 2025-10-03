@@ -161,14 +161,14 @@ jobs:
         run: cargo publish --dry-run
 
       - name: Push changes since dry run publish succeeded
-        if: ${{ !github.event.inputs.dry_run }}
+        if: ${{ github.event.inputs.dry_run != 'true' }}
         run: |
           git push origin ${{ github.event.inputs.branch }}
           git push origin "${{ env.TAG_NAME }}"
           echo "Pushed changes and tag to repository"
 
       - name: Publish to crates.io
-        if: ${{ !github.event.inputs.dry_run && github.event.inputs.branch == 'main' }}
+        if: ${{ github.event.inputs.dry_run != 'true' && github.event.inputs.branch == 'main' }}
         id: publish
         run: cargo publish
         env:
@@ -176,7 +176,7 @@ jobs:
         continue-on-error: true
 
       - name: Rollback if publish failed
-        if: ${{ !github.event.inputs.dry_run && github.event.inputs.branch == 'main' && steps.publish.outcome == 'failure' }}
+        if: ${{ github.event.inputs.dry_run != 'true' && github.event.inputs.branch == 'main' && steps.publish.outcome == 'failure' }}
         run: |
           echo "🔄 Publishing failed, rolling back changes..."
 
@@ -194,14 +194,14 @@ jobs:
           exit 1
 
       - name: Explain skip publish if non-main branch
-        if: ${{ !github.event.inputs.dry_run && github.event.inputs.branch != 'main' }}
+        if: ${{ github.event.inputs.dry_run != 'true' && github.event.inputs.branch != 'main' }}
         run: |
           echo "⚠️  Skipping cargo publish because this is not the main branch"
           echo "cargo publish can only be run from the main branch"
           echo "Current branch: ${{ github.event.inputs.branch }}"
 
       - name: Summarize dry run
-        if: ${{ github.event.inputs.dry_run }}
+        if: ${{ github.event.inputs.dry_run == 'true' }}
         run: |
           echo "🔍 DRY RUN COMPLETED"
           echo "Package: ${{ steps.package_info.outputs.name }}"
