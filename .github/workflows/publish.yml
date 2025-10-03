@@ -1,0 +1,102 @@
+name: Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump_type:
+        description: "Version bump type"
+        required: true
+        default: "patch"
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      dry_run:
+        description: "Dry run (skip actual publish to crates.io)"
+        required: false
+        default: false
+        type: boolean
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  publish:
+    name: Publish Package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: nightly
+          components: clippy, rustfmt
+
+      - name: Cache cargo dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install cargo tools
+        run: |
+          cargo install cargo-get
+          cargo install semver-bump
+          cargo install tomato-toml
+
+      - name: Bump version
+        run: |
+          NEW_VERSION=$(cargo get package.version | semver-bump ${{ github.event.inputs.bump_type }})
+          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
+          tomato set package.version "$NEW_VERSION" Cargo.toml
+          echo "Bumped version to $NEW_VERSION"
+
+      - name: Run tests
+        run: cargo test --verbose
+
+      - name: Run clippy
+        run: cargo clippy -- -D warnings
+
+      - name: Check formatting
+        run: cargo fmt -- --check
+
+      - name: Configure git
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+      - name: Commit version bump
+        run: |
+          git add Cargo.toml
+          git commit -m "Bump version to v${{ env.NEW_VERSION }}"
+          git tag "v${{ env.NEW_VERSION }}"
+
+      - name: Dry run publish
+        run: cargo publish --dry-run
+
+      - name: Push changes
+        if: ${{ !github.event.inputs.dry_run }}
+        run: |
+          git push origin main
+          git push origin "v${{ env.NEW_VERSION }}"
+
+      - name: Skip push (dry run)
+        if: ${{ github.event.inputs.dry_run }}
+        run: echo "Skipping git push because dry-run is enabled"
+
+      - name: Publish to crates.io
+        if: ${{ !github.event.inputs.dry_run }}
+        run: cargo publish
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+      - name: Skip publish (dry run)
+        if: ${{ github.event.inputs.dry_run }}
+        run: echo "Skipping cargo publish because dry-run is enabled"
