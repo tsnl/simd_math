@@ -175,7 +175,7 @@ jobs:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         continue-on-error: true
 
-      - name: Rollback on publish failure
+      - name: Rollback if publish failed
         if: ${{ !github.event.inputs.dry_run && github.event.inputs.branch == 'main' && steps.publish.outcome == 'failure' }}
         run: |
           echo "🔄 Publishing failed, rolling back changes..."
@@ -193,14 +193,14 @@ jobs:
           echo "❌ Rollback completed. Version bump and tag have been reverted."
           exit 1
 
-      - name: Skip publish (non-main branch)
+      - name: Explain skip publish if non-main branch
         if: ${{ !github.event.inputs.dry_run && github.event.inputs.branch != 'main' }}
         run: |
           echo "⚠️  Skipping cargo publish because this is not the main branch"
           echo "cargo publish can only be run from the main branch"
           echo "Current branch: ${{ github.event.inputs.branch }}"
 
-      - name: Dry run summary
+      - name: Summarize dry run
         if: ${{ github.event.inputs.dry_run }}
         run: |
           echo "🔍 DRY RUN COMPLETED"
