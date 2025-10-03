@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       branch:
-        description: "Branch to run on"
+        description: "Branch to publish from"
         required: true
         default: "main"
         type: string
@@ -18,7 +18,7 @@ on:
           - minor
           - major
       dry_run:
-        description: "Dry run (skip actual publish to crates.io)"
+        description: "Dry run: skip automated commit, push, and publish"
         required: false
         default: false
         type: boolean
