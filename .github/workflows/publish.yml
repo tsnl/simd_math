@@ -146,13 +146,11 @@ jobs:
         run: cargo build --release
 
       - name: Configure git
-        if: ${{ !github.event.inputs.dry_run }}
         run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
+          git config --local user.email "nikhilidiculla+simd_math_github_action@gmail.com"
+          git config --local user.name "Nikhil Idiculla (via GitHub Actions)"
 
-      - name: Commit version bump
-        if: ${{ !github.event.inputs.dry_run }}
+      - name: Commit version bump (but don't push yet)
         run: |
           git add Cargo.toml Cargo.lock
           git commit -m "Bump version to ${{ env.TAG_NAME }}"
