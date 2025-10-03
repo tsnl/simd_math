@@ -70,7 +70,7 @@ jobs:
           if ! command -v semver-bump &> /dev/null; then
             cargo install semver-bump --version 1.0.1
           fi
-          if ! command -v tomato-toml &> /dev/null; then
+          if ! command -v tomato &> /dev/null; then
             cargo install tomato-toml --version 1.0.0
           fi
 
