@@ -41,6 +41,7 @@ jobs:
           ref: ${{ github.event.inputs.branch }}
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
+          persist-credentials: false # we set up our own PAT later to push to 'main', bypassing checks
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -149,6 +150,7 @@ jobs:
         run: |
           git config --local user.email "nikhilidiculla@gmail.com"
           git config --local user.name "Nikhil Idiculla (via GitHub Actions)"
+          git remote set-url origin https://tsnl:${{ secrets.PAT_TOKEN }}@github.com/${{ github.repository }}.git
 
       - name: Commit version bump (but don't push yet)
         run: |
