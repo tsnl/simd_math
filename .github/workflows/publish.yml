@@ -147,7 +147,7 @@ jobs:
 
       - name: Configure git
         run: |
-          git config --local user.email "nikhilidiculla+simd_math_github_action@gmail.com"
+          git config --local user.email "nikhilidiculla@gmail.com"
           git config --local user.name "Nikhil Idiculla (via GitHub Actions)"
 
       - name: Commit version bump (but don't push yet)
