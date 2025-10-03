@@ -1,6 +1,7 @@
 # `simd_math`
 
 [![CI](https://github.com/tsnl/simd_math/actions/workflows/ci.yml/badge.svg)](https://github.com/tsnl/simd_math/actions/workflows/ci.yml)
+[![Publish](https://github.com/tsnl/simd_math/actions/workflows/publish.yml/badge.svg)](https://github.com/tsnl/simd_math/actions/workflows/publish.yml)
 
 A Rust library providing SIMD-accelerated mathematical functions for games, graphics, robotics, and other spatial computing applications.
 
@@ -29,7 +30,7 @@ let rotated_vector = rotation * vector;
 
 We ensure that our algebraic types are convertible to and from Rust arrays. Use arrays in your APIs for simple, math-library-agnostic interfaces. Cf [Mujoco](https://github.com/google-deepmind/mujoco).
 
-In the same spirit, we do not expose `.x`, `.y`, `.z` fields on vectors or quaternions. Use indexing (`v[0]`, `v[1]`, `v[2]`). 
+In the same spirit, we do not expose `.x`, `.y`, `.z` fields on vectors or quaternions. Use indexing (`v[0]`, `v[1]`, `v[2]`).
 
 This decision further eschews conventions about what is front, up, and right in 3D space, which vary between applications. It also makes it easier to use vectors for non-spatial data, e.g. color.
 
