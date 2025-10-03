@@ -20,7 +20,7 @@ on:
       dry_run:
         description: "Dry run: skip automated commit, push, and publish"
         required: false
-        default: false
+        default: true
         type: boolean
 
 env:
