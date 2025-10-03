@@ -3,6 +3,11 @@ name: Publish
 on:
   workflow_dispatch:
     inputs:
+      branch:
+        description: "Branch to run on"
+        required: true
+        default: "main"
+        type: string
       bump_type:
         description: "Version bump type"
         required: true
@@ -28,7 +33,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ github.event.inputs.branch }}
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
@@ -65,8 +70,14 @@ jobs:
         run: |
           CURRENT_VERSION=$(tomato get package.version Cargo.toml)
           NEW_VERSION=$(echo "$CURRENT_VERSION" | semver-bump ${{ github.event.inputs.bump_type }})
-          if git tag -l | grep -q "^v$NEW_VERSION$"; then
-            echo "Tag v$NEW_VERSION already exists!"
+          if [ "${{ github.event.inputs.branch }}" = "main" ]; then
+            TAG_NAME="v$NEW_VERSION"
+          else
+            TAG_NAME="${{ github.event.inputs.branch }}-v$NEW_VERSION"
+          fi
+          echo "TAG_NAME=$TAG_NAME" >> $GITHUB_ENV
+          if git tag -l | grep -q "^$TAG_NAME$"; then
+            echo "Tag $TAG_NAME already exists!"
             exit 1
           fi
 
@@ -117,28 +128,40 @@ jobs:
         if: ${{ !github.event.inputs.dry_run }}
         run: |
           git add Cargo.toml Cargo.lock
-          git commit -m "Bump version to v${{ env.NEW_VERSION }}"
-          git tag "v${{ env.NEW_VERSION }}"
-          echo "Created commit and tag for v${{ env.NEW_VERSION }}"
+          git commit -m "Bump version to ${{ env.TAG_NAME }}"
+          git tag "${{ env.TAG_NAME }}"
+          echo "Created commit and tag for ${{ env.TAG_NAME }}"
 
       - name: Push changes
         if: ${{ !github.event.inputs.dry_run }}
         run: |
-          git push origin main
-          git push origin "v${{ env.NEW_VERSION }}"
+          git push origin ${{ github.event.inputs.branch }}
+          git push origin "${{ env.TAG_NAME }}"
           echo "Pushed changes and tag to repository"
 
       - name: Publish to crates.io
-        if: ${{ !github.event.inputs.dry_run }}
+        if: ${{ !github.event.inputs.dry_run && github.event.inputs.branch == 'main' }}
         run: cargo publish
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+      - name: Skip publish (non-main branch)
+        if: ${{ !github.event.inputs.dry_run && github.event.inputs.branch != 'main' }}
+        run: |
+          echo "⚠️  Skipping cargo publish because this is not the main branch"
+          echo "cargo publish can only be run from the main branch"
+          echo "Current branch: ${{ github.event.inputs.branch }}"
 
       - name: Dry run summary
         if: ${{ github.event.inputs.dry_run }}
         run: |
           echo "🔍 DRY RUN COMPLETED"
+          echo "Branch: ${{ github.event.inputs.branch }}"
           echo "Version would be bumped from ${{ steps.current_version.outputs.current }} to ${{ env.NEW_VERSION }}"
-          echo "Changes would be committed and tagged as v${{ env.NEW_VERSION }}"
-          echo "Package would be published to crates.io"
+          echo "Changes would be committed and tagged as ${{ env.TAG_NAME }}"
+          if [ "${{ github.event.inputs.branch }}" = "main" ]; then
+            echo "Package would be published to crates.io"
+          else
+            echo "Package would NOT be published to crates.io (non-main branch)"
+          fi
           echo "No actual changes were made to the repository or crates.io"
