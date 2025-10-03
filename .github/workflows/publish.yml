@@ -23,10 +23,7 @@ on:
         default: true
         type: boolean
 
-env:
-  CARGO_TERM_COLOR: always
-
-# Grant permissions for GITHUB_TOKEN (alternative to PAT)
+# Grant permissions for GITHUB_TOKEN
 permissions:
   contents: write
   pull-requests: read
@@ -39,180 +36,31 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.inputs.branch }}
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PAT_TOKEN }}
           fetch-depth: 0
-          persist-credentials: false # we set up our own PAT later to push to 'main', bypassing checks
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: nightly-2025-09-30
-          components: clippy, rustfmt
-
-      - name: Cache cargo dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
-
-      - name: Cache cargo tools
-        uses: actions/cache@v4
-        with:
-          path: ~/.cargo/bin
-          key: cargo-tools-${{ runner.os }}-semver-bump-1.0.1-tomato-toml-1.0.0
-
-      - name: Install cargo tools
-        run: |
-          if ! command -v semver-bump &> /dev/null; then
-            cargo install semver-bump --version 1.0.1
-          fi
-          if ! command -v tomato &> /dev/null; then
-            cargo install tomato-toml --version 1.0.0
-          fi
-
-      - name: Validate tokens
-        run: |
-          if [ -z "${{ secrets.CARGO_REGISTRY_TOKEN }}" ]; then
-            echo "⚠️  CARGO_REGISTRY_TOKEN secret is not set"
-            exit 1
-          fi
-          if [ -z "${{ secrets.PAT_TOKEN }}" ]; then
-            echo "⚠️  PAT_TOKEN secret is not set"
-            exit 1
-          fi
-          echo "✅ All required tokens are configured"
-
-      - name: Get package info
-        id: package_info
-        run: |
-          PACKAGE_NAME=$(tomato get package.name Cargo.toml)
-          CURRENT_VERSION=$(tomato get package.version Cargo.toml)
-          echo "name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
-          echo "current=$CURRENT_VERSION" >> $GITHUB_OUTPUT
-          echo "Package: $PACKAGE_NAME"
-          echo "Current version: $CURRENT_VERSION"
-
-      - name: Check if tag already exists
-        run: |
-          CURRENT_VERSION=$(tomato get package.version Cargo.toml)
-          NEW_VERSION=$(echo "$CURRENT_VERSION" | semver-bump ${{ github.event.inputs.bump_type }})
-          if [ "${{ github.event.inputs.branch }}" = "main" ]; then
-            TAG_NAME="v$NEW_VERSION"
-          else
-            TAG_NAME="${{ github.event.inputs.branch }}-v$NEW_VERSION"
-          fi
-          echo "TAG_NAME=$TAG_NAME" >> $GITHUB_ENV
-          if git tag -l | grep -q "^$TAG_NAME$"; then
-            echo "Tag $TAG_NAME already exists!"
-            exit 1
-          fi
-
-      - name: Bump version
-        run: |
-          CURRENT_VERSION=$(tomato get package.version Cargo.toml)
-          NEW_VERSION=$(echo "$CURRENT_VERSION" | semver-bump ${{ github.event.inputs.bump_type }})
-          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
-          tomato set package.version "$NEW_VERSION" Cargo.toml
-          echo "Bumped version from $CURRENT_VERSION to $NEW_VERSION"
-
-      - name: Update Cargo.lock
-        run: |
-          cargo update -p ${{ steps.package_info.outputs.name }}
-          echo "Updated Cargo.lock"
-
-      - name: Verify version change
-        run: |
-          NEW_VERSION_CHECK=$(tomato get package.version Cargo.toml)
-          if [ "$NEW_VERSION_CHECK" != "${{ env.NEW_VERSION }}" ]; then
-            echo "Version update failed. Expected ${{ env.NEW_VERSION }}, got $NEW_VERSION_CHECK"
-            exit 1
-          fi
-          echo "Version update verified: $NEW_VERSION_CHECK"
-
-      - name: Run tests
-        run: cargo test --verbose
-
-      - name: Run clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings
-
-      - name: Check formatting
-        run: cargo fmt -- --check
-
-      - name: Build package
-        run: cargo build --release
-
-      - name: Configure git
-        run: |
-          git config --local user.email "nikhilidiculla@gmail.com"
-          git config --local user.name "Nikhil Idiculla (via GitHub Actions)"
-          git remote set-url origin https://tsnl:${{ secrets.PAT_TOKEN }}@github.com/${{ github.repository }}.git
-
-      - name: Commit version bump (but don't push yet)
-        run: |
-          git add Cargo.toml Cargo.lock
-          git commit -m "Bump version to ${{ env.TAG_NAME }}"
-          git tag "${{ env.TAG_NAME }}"
-          echo "Created commit and tag for ${{ env.TAG_NAME }}"
-
-      - name: Dry run publish
-        run: cargo publish --dry-run
-
-      - name: Push changes since dry run publish succeeded
-        if: ${{ github.event.inputs.dry_run != 'true' }}
-        run: |
-          git push origin ${{ github.event.inputs.branch }}
-          git push origin "${{ env.TAG_NAME }}"
-          echo "Pushed changes and tag to repository"
-
-      - name: Publish to crates.io
-        if: ${{ github.event.inputs.dry_run != 'true' && github.event.inputs.branch == 'main' }}
+      - name: Publish crate using custom action
         id: publish
-        run: cargo publish
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        continue-on-error: true
+        uses: tsnl/semver-bump-and-cargo-publish@main
+        with:
+          branch: ${{ github.event.inputs.branch }}
+          bump_type: ${{ github.event.inputs.bump_type }}
+          dry_run: ${{ github.event.inputs.dry_run }}
+          cargo_registry_token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          pat_token: ${{ secrets.PAT_TOKEN }}
+          wait_for_checks: "Test, Lint, Check Formatting"
+          check_wait_interval: "60"
+          check_timeout_count: "20"
+          rust_toolchain: "nightly-2025-09-30"
+          git_user_email: "nikhilidiculla@gmail.com"
+          git_user_name: "Nikhil Idiculla (via GitHub Actions)"
 
-      - name: Rollback if publish failed
-        if: ${{ github.event.inputs.dry_run != 'true' && github.event.inputs.branch == 'main' && steps.publish.outcome == 'failure' }}
+      - name: Output summary
         run: |
-          echo "🔄 Publishing failed, rolling back changes..."
-
-          # Delete the tag locally and remotely
-          git tag -d "${{ env.TAG_NAME }}"
-          git push origin --delete "${{ env.TAG_NAME }}" || echo "Tag may not exist on remote"
-
-          # Reset to previous commit (undo version bump commit)
-          git reset --hard HEAD~1
-
-          # Force push to revert the commit on main
-          git push --force-with-lease origin ${{ github.event.inputs.branch }}
-
-          echo "❌ Rollback completed. Version bump and tag have been reverted."
-          exit 1
-
-      - name: Explain skip publish if non-main branch
-        if: ${{ github.event.inputs.dry_run != 'true' && github.event.inputs.branch != 'main' }}
-        run: |
-          echo "⚠️  Skipping cargo publish because this is not the main branch"
-          echo "cargo publish can only be run from the main branch"
-          echo "Current branch: ${{ github.event.inputs.branch }}"
-
-      - name: Summarize dry run
-        if: ${{ github.event.inputs.dry_run == 'true' }}
-        run: |
-          echo "🔍 DRY RUN COMPLETED"
-          echo "Package: ${{ steps.package_info.outputs.name }}"
-          echo "Branch: ${{ github.event.inputs.branch }}"
-          echo "Version would be bumped from ${{ steps.package_info.outputs.current }} to ${{ env.NEW_VERSION }}"
-          echo "Changes would be committed and tagged as ${{ env.TAG_NAME }}"
-          if [ "${{ github.event.inputs.branch }}" = "main" ]; then
-            echo "Package would be published to crates.io"
-          else
-            echo "Package would NOT be published to crates.io (non-main branch)"
-          fi
-          echo "No actual changes were made to the repository or crates.io"
+          echo "## 📦 Publish Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Package**: ${{ steps.publish.outputs.package_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch**: ${{ github.event.inputs.branch }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version**: ${{ steps.publish.outputs.old_version }} → ${{ steps.publish.outputs.new_version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tag**: ${{ steps.publish.outputs.tag_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Published to crates.io**: ${{ steps.publish.outputs.published }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Dry run**: ${{ github.event.inputs.dry_run }}" >> $GITHUB_STEP_SUMMARY
