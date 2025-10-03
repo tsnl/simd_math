@@ -30,67 +30,103 @@ jobs:
         with:
           ref: main
           token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: nightly
+          toolchain: nightly-2025-09-30
           components: clippy, rustfmt
 
       - name: Cache cargo dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
             target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
 
       - name: Install cargo tools
         run: |
-          cargo install cargo-get
           cargo install semver-bump
           cargo install tomato-toml
 
+      - name: Get current version
+        id: current_version
+        run: |
+          CURRENT_VERSION=$(tomato get package.version Cargo.toml)
+          echo "current=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "Current version: $CURRENT_VERSION"
+
+      - name: Check if tag already exists
+        run: |
+          CURRENT_VERSION=$(tomato get package.version Cargo.toml)
+          NEW_VERSION=$(echo "$CURRENT_VERSION" | semver-bump ${{ github.event.inputs.bump_type }})
+          if git tag -l | grep -q "^v$NEW_VERSION$"; then
+            echo "Tag v$NEW_VERSION already exists!"
+            exit 1
+          fi
+
       - name: Bump version
         run: |
-          NEW_VERSION=$(cargo get package.version | semver-bump ${{ github.event.inputs.bump_type }})
+          CURRENT_VERSION=$(tomato get package.version Cargo.toml)
+          NEW_VERSION=$(echo "$CURRENT_VERSION" | semver-bump ${{ github.event.inputs.bump_type }})
           echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
           tomato set package.version "$NEW_VERSION" Cargo.toml
-          echo "Bumped version to $NEW_VERSION"
+          echo "Bumped version from $CURRENT_VERSION to $NEW_VERSION"
+
+      - name: Update Cargo.lock
+        run: |
+          cargo update -p simd_math
+          echo "Updated Cargo.lock"
+
+      - name: Verify version change
+        run: |
+          NEW_VERSION_CHECK=$(tomato get package.version Cargo.toml)
+          if [ "$NEW_VERSION_CHECK" != "${{ env.NEW_VERSION }}" ]; then
+            echo "Version update failed. Expected ${{ env.NEW_VERSION }}, got $NEW_VERSION_CHECK"
+            exit 1
+          fi
+          echo "Version update verified: $NEW_VERSION_CHECK"
 
       - name: Run tests
         run: cargo test --verbose
 
       - name: Run clippy
-        run: cargo clippy -- -D warnings
+        run: cargo clippy --all-targets --all-features -- -D warnings
 
       - name: Check formatting
         run: cargo fmt -- --check
 
+      - name: Build package
+        run: cargo build --release
+
+      - name: Dry run publish
+        run: cargo publish --dry-run
+
       - name: Configure git
+        if: ${{ !github.event.inputs.dry_run }}
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
 
       - name: Commit version bump
+        if: ${{ !github.event.inputs.dry_run }}
         run: |
-          git add Cargo.toml
+          git add Cargo.toml Cargo.lock
           git commit -m "Bump version to v${{ env.NEW_VERSION }}"
           git tag "v${{ env.NEW_VERSION }}"
-
-      - name: Dry run publish
-        run: cargo publish --dry-run
+          echo "Created commit and tag for v${{ env.NEW_VERSION }}"
 
       - name: Push changes
         if: ${{ !github.event.inputs.dry_run }}
         run: |
           git push origin main
           git push origin "v${{ env.NEW_VERSION }}"
-
-      - name: Skip push (dry run)
-        if: ${{ github.event.inputs.dry_run }}
-        run: echo "Skipping git push because dry-run is enabled"
+          echo "Pushed changes and tag to repository"
 
       - name: Publish to crates.io
         if: ${{ !github.event.inputs.dry_run }}
@@ -98,6 +134,11 @@ jobs:
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
-      - name: Skip publish (dry run)
+      - name: Dry run summary
         if: ${{ github.event.inputs.dry_run }}
-        run: echo "Skipping cargo publish because dry-run is enabled"
+        run: |
+          echo "🔍 DRY RUN COMPLETED"
+          echo "Version would be bumped from ${{ steps.current_version.outputs.current }} to ${{ env.NEW_VERSION }}"
+          echo "Changes would be committed and tagged as v${{ env.NEW_VERSION }}"
+          echo "Package would be published to crates.io"
+          echo "No actual changes were made to the repository or crates.io"
