@@ -3,7 +3,7 @@ use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign};
 
 macro_rules! impl_simd_rect {
     ($name:ident, $vec_type:ty, $num_elements:expr, $lo:expr, $hi:expr) => {
-        #[derive(Clone, Copy, Debug)]
+        #[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
         pub struct $name {
             pub min: $vec_type,
             pub max: $vec_type,
