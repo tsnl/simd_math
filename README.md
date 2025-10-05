@@ -44,3 +44,8 @@ This is consistent with OpenGL and GLM, but not with most textbook math.
 Quaternions are represented as `(s, x, y, z)` where `s` is the scalar part. Think `s + iv`.
 
 We assume a right-handed coordinate system.
+
+## TODO
+
+- [ ] Need easier conversion between scalar types, e.g. `SimdUVec2` from `[u16; 2]` should work.
+- [ ] Need flattening for rects, e.g. `into_array()` methods on all types?
