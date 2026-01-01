@@ -1,7 +1,7 @@
 use super::*;
 use num_traits::identities::ConstZero;
 use std::fmt::Debug;
-use std::ops::{Add, Div, Index, Mul, Neg, Sub};
+use std::ops::{Add, AddAssign, Div, DivAssign, Index, Mul, MulAssign, Neg, Sub, SubAssign};
 
 pub trait SimdVector: Sized {
     type LaneType: Sized + ConstZero + Copy + Debug + PartialEq + PartialOrd;
@@ -86,13 +86,13 @@ macro_rules! impl_simd_vec_universal_methods {
             pub fn dot(self, other: $name) -> $lane_ty {
                 (self.0 * other.0).reduce_sum()
             }
-        }
-        impl Mul<$name> for $name {
-            type Output = $name;
-            /// Elementwise product
             #[inline]
-            fn mul(self, rhs: $name) -> Self::Output {
-                $name(self.0 * rhs.0)
+            pub fn reduce_sum(self) -> $lane_ty {
+                self.0.reduce_sum()
+            }
+            #[inline]
+            pub fn reduce_product(self) -> $lane_ty {
+                self.0.reduce_product()
             }
         }
         impl Mul<$lane_ty> for $name {
@@ -102,11 +102,37 @@ macro_rules! impl_simd_vec_universal_methods {
                 $name(self.0 * <$simd_ty>::splat(rhs))
             }
         }
+        impl MulAssign<$lane_ty> for $name {
+            #[inline]
+            fn mul_assign(&mut self, rhs: $lane_ty) {
+                self.0 *= <$simd_ty>::splat(rhs);
+            }
+        }
+        impl Mul<$name> for $name {
+            type Output = $name;
+            /// Elementwise product
+            #[inline]
+            fn mul(self, rhs: $name) -> Self::Output {
+                $name(self.0 * rhs.0)
+            }
+        }
+        impl MulAssign<$name> for $name {
+            #[inline]
+            fn mul_assign(&mut self, rhs: $name) {
+                self.0 *= rhs.0;
+            }
+        }
         impl Div<$lane_ty> for $name {
             type Output = $name;
             #[inline]
             fn div(self, rhs: $lane_ty) -> Self::Output {
                 $name(self.0 / <$simd_ty>::splat(rhs))
+            }
+        }
+        impl DivAssign<$lane_ty> for $name {
+            #[inline]
+            fn div_assign(&mut self, rhs: $lane_ty) {
+                self.0 /= <$simd_ty>::splat(rhs);
             }
         }
         impl Div<$name> for $name {
@@ -117,6 +143,12 @@ macro_rules! impl_simd_vec_universal_methods {
                 $name(self.0 / rhs.0)
             }
         }
+        impl DivAssign<$name> for $name {
+            #[inline]
+            fn div_assign(&mut self, rhs: $name) {
+                self.0 /= rhs.0;
+            }
+        }
         impl Add<$name> for $name {
             type Output = $name;
             #[inline]
@@ -124,11 +156,23 @@ macro_rules! impl_simd_vec_universal_methods {
                 $name(self.0 + rhs.0)
             }
         }
+        impl AddAssign<$name> for $name {
+            #[inline]
+            fn add_assign(&mut self, rhs: $name) {
+                self.0 += rhs.0;
+            }
+        }
         impl Sub<$name> for $name {
             type Output = $name;
             #[inline]
             fn sub(self, rhs: $name) -> Self::Output {
                 $name(self.0 - rhs.0)
+            }
+        }
+        impl SubAssign<$name> for $name {
+            #[inline]
+            fn sub_assign(&mut self, rhs: $name) {
+                self.0 -= rhs.0;
             }
         }
         impl $name {
