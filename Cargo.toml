@@ -6,4 +6,4 @@ description = "SIMD math for spatial computing."
 license = "MIT"
 
 [dependencies]
-num-traits = "0.2.19"
+num-traits = "^0.2.19"
