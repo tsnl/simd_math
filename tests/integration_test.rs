@@ -469,41 +469,26 @@ fn example_collision_detection() {
     let wall_max = SimdVec3::from([2.5, 3.0, 5.0]);
     let wall_aabb = SimdRect3::new(wall_min, wall_max);
 
-    // Test no collision initially
-    let intersection = player_aabb & wall_aabb;
-    let intersection_extent = intersection.extent();
-
-    // No intersection should result in negative extent
-    assert!(
-        intersection_extent[0] < 0.0
-            || intersection_extent[1] < 0.0
-            || intersection_extent[2] < 0.0
-    );
+    // No collision initially: the boxes are disjoint, so their intersection
+    // is empty.
+    assert!(!player_aabb.intersects(&wall_aabb));
+    assert!((player_aabb & wall_aabb).is_empty());
 
     // Move player toward wall
     let player_new_min = SimdVec3::from([1.8, 0.0, -0.5]);
     let player_new_max = SimdVec3::from([2.8, 2.0, 0.5]);
     let player_moved_aabb = SimdRect3::new(player_new_min, player_new_max);
 
-    // Test collision after movement
-    let _collision_intersection = player_moved_aabb & wall_aabb;
-
-    // Based on debug output, AABB intersection with overlap has negative extents
-    // So check for overlap using the standard AABB overlap test
-    let overlaps_x = player_moved_aabb.max()[0] > wall_aabb.min()[0]
-        && player_moved_aabb.min()[0] < wall_aabb.max()[0];
-    let overlaps_y = player_moved_aabb.max()[1] > wall_aabb.min()[1]
-        && player_moved_aabb.min()[1] < wall_aabb.max()[1];
-    let overlaps_z = player_moved_aabb.max()[2] > wall_aabb.min()[2]
-        && player_moved_aabb.min()[2] < wall_aabb.max()[2];
-
-    let has_collision = overlaps_x && overlaps_y && overlaps_z;
-
     // With the moved player AABB, there should be overlap
     assert!(
-        has_collision,
+        player_moved_aabb.intersects(&wall_aabb),
         "Player should collide with wall after movement"
     );
+    let overlap = player_moved_aabb & wall_aabb;
+    assert!(!overlap.is_empty());
+    // The overlapping region is the part of the wall the player has entered.
+    assert!((overlap.min[0] - 2.0).abs() < 1e-6);
+    assert!((overlap.max[0] - 2.5).abs() < 1e-6);
 }
 
 #[test]
@@ -538,21 +523,17 @@ fn example_spatial_partitioning() {
         combined_bounds |= *object;
     }
 
-    // Verify combined bounds contains all objects
+    // Verify combined bounds contains all objects (bounds are inclusive, so
+    // corners that lie exactly on the boundary count as contained).
     for object in &objects {
-        // Check that each object is fully contained in combined bounds
-        assert!(object.min()[0] >= combined_bounds.min()[0] - 1e-6);
-        assert!(object.min()[1] >= combined_bounds.min()[1] - 1e-6);
-        assert!(object.min()[2] >= combined_bounds.min()[2] - 1e-6);
-        assert!(object.max()[0] <= combined_bounds.max()[0] + 1e-6);
-        assert!(object.max()[1] <= combined_bounds.max()[1] + 1e-6);
-        assert!(object.max()[2] <= combined_bounds.max()[2] + 1e-6);
+        assert!(combined_bounds.contains(object.min));
+        assert!(combined_bounds.contains(object.max));
     }
 
     // Test that combined bounds is reasonable
-    assert!(combined_bounds.min()[0] <= -2.0);
-    assert!(combined_bounds.max()[0] >= 3.0);
-    assert!(combined_bounds.max()[1] >= 5.0);
+    assert!(combined_bounds.min[0] <= -2.0);
+    assert!(combined_bounds.max[0] >= 3.0);
+    assert!(combined_bounds.max[1] >= 5.0);
 }
 
 #[test]
@@ -581,26 +562,15 @@ fn example_frustum_culling() {
         SimdVec3::from([12.0, 12.0, 7.0]),
     );
 
-    // Test visibility (we'll use direct overlap tests instead of intersection extents)
-
-    // Use standard AABB overlap test since intersection extent behavior is inverted
-    let visible_overlaps = visible_object.max()[0] > frustum_aabb.min()[0]
-        && visible_object.min()[0] < frustum_aabb.max()[0]
-        && visible_object.max()[1] > frustum_aabb.min()[1]
-        && visible_object.min()[1] < frustum_aabb.max()[1]
-        && visible_object.max()[2] > frustum_aabb.min()[2]
-        && visible_object.min()[2] < frustum_aabb.max()[2];
-
-    let hidden_overlaps = hidden_object.max()[0] > frustum_aabb.min()[0]
-        && hidden_object.min()[0] < frustum_aabb.max()[0]
-        && hidden_object.max()[1] > frustum_aabb.min()[1]
-        && hidden_object.min()[1] < frustum_aabb.max()[1]
-        && hidden_object.max()[2] > frustum_aabb.min()[2]
-        && hidden_object.min()[2] < frustum_aabb.max()[2];
-
-    // Visible object should overlap, hidden should not
-    assert!(visible_overlaps, "Visible object should be in frustum");
-    assert!(!hidden_overlaps, "Hidden object should not be in frustum");
+    // Visible object should overlap the frustum, hidden should not
+    assert!(
+        frustum_aabb.intersects(&visible_object),
+        "Visible object should be in frustum"
+    );
+    assert!(
+        !frustum_aabb.intersects(&hidden_object),
+        "Hidden object should not be in frustum"
+    );
 }
 
 //--------------------------------------------------------------------------------------------------

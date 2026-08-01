@@ -2,10 +2,19 @@ use super::*;
 use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign};
 
 macro_rules! impl_simd_rect {
-    ($name:ident, $vec_type:ty, $num_elements:expr, $lo:expr, $hi:expr) => {
+    ($name:ident, $vec_type:ty, $lane_ty:ty, $dim:expr, $lo:expr, $hi:expr) => {
+        #[doc = concat!(
+                    "An axis-aligned bounding box with [`", stringify!($vec_type), "`] corners."
+                )]
+        ///
+        /// `min` and `max` are inclusive corner bounds. Union is the `|`/`|=`
+        /// operator and intersection is `&`/`&=`; both also accept a vector on
+        /// the right-hand side, treated as a degenerate point-rect.
         #[derive(Clone, Copy, Debug, PartialEq)]
         pub struct $name {
+            /// The minimum (inclusive) corner of the box.
             pub min: $vec_type,
+            /// The maximum (inclusive) corner of the box.
             pub max: $vec_type,
         }
 
@@ -16,33 +25,55 @@ macro_rules! impl_simd_rect {
                 $name { min, max }
             }
 
-            /// Returns the minimum bounds of the rect.
-            #[inline]
-            pub fn min(&self) -> $vec_type {
-                self.min
-            }
-
-            /// Returns the maximum bounds of the rect.
-            #[inline]
-            pub fn max(&self) -> $vec_type {
-                self.max
-            }
-
             /// Returns the center point of the rect.
+            ///
+            /// Assumes a well-formed rect (`min <= max` in every component).
+            /// Computed as `min + extent / 2` so that it cannot overflow for
+            /// well-formed integer rects.
             #[inline]
+            #[must_use]
             pub fn center(&self) -> $vec_type {
-                type LaneType = <$vec_type as SimdVector>::LaneType;
-                (self.min + self.max) / <$vec_type>::splat(2 as LaneType)
+                self.min + self.extent() / (2 as $lane_ty)
             }
 
-            /// Returns the extent (size) of the rect.
+            /// Returns the extent (size) of the rect along each axis.
+            ///
+            /// For unsigned rects this wraps if the rect is not well-formed
+            /// (`min > max` in some component).
             #[inline]
+            #[must_use]
             pub fn extent(&self) -> $vec_type {
                 self.max - self.min
             }
 
+            /// Returns `true` if `point` lies within the box (bounds inclusive).
+            #[inline]
+            #[must_use]
+            pub fn contains(&self, point: $vec_type) -> bool {
+                point.elementwise_max(self.min) == point && point.elementwise_min(self.max) == point
+            }
+
+            /// Returns `true` if the two boxes overlap (touching edges count,
+            /// since bounds are inclusive).
+            #[inline]
+            #[must_use]
+            pub fn intersects(&self, other: &Self) -> bool {
+                let lo = self.min.elementwise_max(other.min);
+                let hi = self.max.elementwise_min(other.max);
+                lo.elementwise_min(hi) == lo
+            }
+
+            /// Returns `true` if the box contains no points, i.e. some
+            /// component of `min` exceeds the corresponding component of `max`.
+            #[inline]
+            #[must_use]
+            pub fn is_empty(&self) -> bool {
+                self.min.elementwise_min(self.max) != self.min
+            }
+
             /// Returns the identity element for union operations.
             /// This rect will not affect the result when unioned with any other rects.
+            #[must_use]
             pub fn union_identity() -> Self {
                 $name {
                     min: <$vec_type>::splat($hi),
@@ -52,10 +83,28 @@ macro_rules! impl_simd_rect {
 
             /// Returns the identity element for intersection operations.
             /// This rect will not affect the result when intersected with any other rects.
+            #[must_use]
             pub fn intersection_identity() -> Self {
                 $name {
                     min: <$vec_type>::splat($lo),
                     max: <$vec_type>::splat($hi),
+                }
+            }
+        }
+
+        // Flatten a rect into a `[min_array, max_array]` pair, and back.
+        impl From<$name> for [[$lane_ty; $dim]; 2] {
+            #[inline]
+            fn from(rect: $name) -> Self {
+                [rect.min.into(), rect.max.into()]
+            }
+        }
+        impl From<[[$lane_ty; $dim]; 2]> for $name {
+            #[inline]
+            fn from([min, max]: [[$lane_ty; $dim]; 2]) -> Self {
+                $name {
+                    min: min.into(),
+                    max: max.into(),
                 }
             }
         }
@@ -126,16 +175,29 @@ macro_rules! impl_simd_rect {
     };
 }
 
-impl_simd_rect!(SimdRect2, SimdVec2, 2, f32::NEG_INFINITY, f32::INFINITY);
-impl_simd_rect!(SimdURect2, SimdUVec2, 2, u32::MIN, u32::MAX);
-impl_simd_rect!(SimdIRect2, SimdIVec2, 2, i32::MIN, i32::MAX);
+impl_simd_rect!(
+    SimdRect2,
+    SimdVec2,
+    f32,
+    2,
+    f32::NEG_INFINITY,
+    f32::INFINITY
+);
+impl_simd_rect!(SimdURect2, SimdUVec2, u32, 2, u32::MIN, u32::MAX);
+impl_simd_rect!(SimdIRect2, SimdIVec2, i32, 2, i32::MIN, i32::MAX);
 
-impl_simd_rect!(SimdRect3, SimdVec3, 3, f32::NEG_INFINITY, f32::INFINITY);
-impl_simd_rect!(SimdURect3, SimdUVec3, 3, u32::MIN, u32::MAX);
-impl_simd_rect!(SimdIRect3, SimdIVec3, 3, i32::MIN, i32::MAX);
+impl_simd_rect!(
+    SimdRect3,
+    SimdVec3,
+    f32,
+    3,
+    f32::NEG_INFINITY,
+    f32::INFINITY
+);
+impl_simd_rect!(SimdURect3, SimdUVec3, u32, 3, u32::MIN, u32::MAX);
+impl_simd_rect!(SimdIRect3, SimdIVec3, i32, 3, i32::MIN, i32::MAX);
 
 //--------------------------------------------------------------------------------------------------
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -201,8 +263,8 @@ mod tests {
                     let max = <$vec_type>::from([vals[2], vals[3]]);
                     let rect = <$rect_type>::new(min, max);
 
-                    assert_vec2_eq(rect.min(), min);
-                    assert_vec2_eq(rect.max(), max);
+                    assert_vec2_eq(rect.min, min);
+                    assert_vec2_eq(rect.max, max);
                 }
 
                 #[test]
@@ -212,8 +274,8 @@ mod tests {
                     let max = <$vec_type>::from([vals[2], vals[3]]);
                     let rect = <$rect_type>::new(min, max);
 
-                    assert_vec2_eq(rect.min(), min);
-                    assert_vec2_eq(rect.max(), max);
+                    assert_vec2_eq(rect.min, min);
+                    assert_vec2_eq(rect.max, max);
                 }
 
                 #[test]
@@ -531,8 +593,8 @@ mod tests {
                     let max = <$vec_type>::from([vals[3], vals[4], vals[5]]);
                     let rect = <$rect_type>::new(min, max);
 
-                    assert_vec3_eq(rect.min(), min);
-                    assert_vec3_eq(rect.max(), max);
+                    assert_vec3_eq(rect.min, min);
+                    assert_vec3_eq(rect.max, max);
                 }
 
                 #[test]
@@ -542,8 +604,8 @@ mod tests {
                     let max = <$vec_type>::from([vals[3], vals[4], vals[5]]);
                     let rect = <$rect_type>::new(min, max);
 
-                    assert_vec3_eq(rect.min(), min);
-                    assert_vec3_eq(rect.max(), max);
+                    assert_vec3_eq(rect.min, min);
+                    assert_vec3_eq(rect.max, max);
                 }
 
                 #[test]
@@ -948,4 +1010,93 @@ mod tests {
         ],
         assert_i32_eq
     );
+}
+
+#[cfg(test)]
+mod rect_api_tests {
+    use super::*;
+
+    #[test]
+    fn test_contains() {
+        let r = SimdRect2::new(SimdVec2::from([0.0, 0.0]), SimdVec2::from([2.0, 3.0]));
+        assert!(r.contains(SimdVec2::from([1.0, 1.0])));
+        assert!(r.contains(SimdVec2::from([0.0, 0.0]))); // bounds are inclusive
+        assert!(r.contains(SimdVec2::from([2.0, 3.0]))); // bounds are inclusive
+        assert!(!r.contains(SimdVec2::from([2.1, 1.0])));
+        assert!(!r.contains(SimdVec2::from([-0.1, 1.0])));
+
+        let r3 = SimdIRect3::new(SimdIVec3::from([0, 0, 0]), SimdIVec3::from([2, 2, 2]));
+        assert!(r3.contains(SimdIVec3::from([1, 1, 1])));
+        assert!(!r3.contains(SimdIVec3::from([1, 1, 3])));
+    }
+
+    #[test]
+    fn test_intersects() {
+        let a = SimdRect2::new(SimdVec2::from([0.0, 0.0]), SimdVec2::from([2.0, 2.0]));
+        let b = SimdRect2::new(SimdVec2::from([1.0, 1.0]), SimdVec2::from([3.0, 3.0]));
+        let c = SimdRect2::new(SimdVec2::from([5.0, 5.0]), SimdVec2::from([6.0, 6.0]));
+        let touching = SimdRect2::new(SimdVec2::from([2.0, 0.0]), SimdVec2::from([3.0, 2.0]));
+        assert!(a.intersects(&b));
+        assert!(b.intersects(&a));
+        assert!(!a.intersects(&c));
+        assert!(a.intersects(&touching)); // touching edges count
+
+        let a3 = SimdURect3::new(SimdUVec3::from([0, 0, 0]), SimdUVec3::from([2, 2, 2]));
+        let b3 = SimdURect3::new(SimdUVec3::from([3, 0, 0]), SimdUVec3::from([4, 2, 2]));
+        assert!(!a3.intersects(&b3));
+    }
+
+    #[test]
+    fn test_is_empty() {
+        assert!(SimdRect2::union_identity().is_empty());
+        assert!(!SimdRect2::intersection_identity().is_empty());
+        assert!(SimdURect3::union_identity().is_empty());
+
+        // A degenerate point-rect still contains one point.
+        let point_rect = SimdRect2::new(SimdVec2::ZERO, SimdVec2::ZERO);
+        assert!(!point_rect.is_empty());
+
+        // Intersection of disjoint rects is empty.
+        let a = SimdRect3::new(SimdVec3::ZERO, SimdVec3::from([1.0, 1.0, 1.0]));
+        let b = SimdRect3::new(
+            SimdVec3::from([2.0, 0.0, 0.0]),
+            SimdVec3::from([3.0, 1.0, 1.0]),
+        );
+        assert!((a & b).is_empty());
+        assert!(!a.intersects(&b));
+    }
+
+    #[test]
+    fn test_array_conversions() {
+        let r = SimdIRect2::from([[0, 1], [4, 5]]);
+        assert_eq!(r.min, SimdIVec2::from([0, 1]));
+        assert_eq!(r.max, SimdIVec2::from([4, 5]));
+        let arr: [[i32; 2]; 2] = r.into();
+        assert_eq!(arr, [[0, 1], [4, 5]]);
+
+        let arr3: [[f32; 3]; 2] = SimdRect3::new(
+            SimdVec3::from([1.0, 2.0, 3.0]),
+            SimdVec3::from([4.0, 5.0, 6.0]),
+        )
+        .into();
+        assert_eq!(arr3, [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]);
+    }
+
+    #[test]
+    fn test_int_center_no_overflow() {
+        // (min + max) / 2 would overflow here; min + extent / 2 must not.
+        let r = SimdIRect2::new(
+            SimdIVec2::from([i32::MAX - 4, i32::MAX - 8]),
+            SimdIVec2::from([i32::MAX, i32::MAX]),
+        );
+        let center = r.center();
+        assert_eq!(center, SimdIVec2::from([i32::MAX - 2, i32::MAX - 4]));
+
+        let r = SimdURect2::new(
+            SimdUVec2::from([u32::MAX - 4, u32::MAX - 8]),
+            SimdUVec2::from([u32::MAX, u32::MAX]),
+        );
+        let center = r.center();
+        assert_eq!(center, SimdUVec2::from([u32::MAX - 2, u32::MAX - 4]));
+    }
 }
