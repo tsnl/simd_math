@@ -40,8 +40,12 @@ macro_rules! impl_basic_simd_vec {
         )]
         ///
         /// When the backing register is wider than the vector, the extra
-        /// (padding) lanes always hold zero. Every operation preserves this
-        /// invariant, and comparisons ignore the padding lanes.
+        /// (padding) lanes of every value of this type hold zero, and every
+        /// operation preserves that invariant. Comparisons ignore the padding
+        /// lanes entirely. A few operations (elementwise division, product
+        /// reduction) internally substitute ones into the padding lanes of a
+        /// *temporary* operand register to stay well-defined, but such
+        /// registers are never returned or stored.
         #[derive(Clone, Copy)]
         pub struct $name(pub(crate) $simd_ty);
 
