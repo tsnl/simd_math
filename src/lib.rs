@@ -8,8 +8,8 @@
 mod rect;
 pub use rect::*;
 
-mod matrix;
-pub use matrix::*;
+mod mat3x4;
+pub use mat3x4::*;
 
 mod quaternion;
 pub use quaternion::*;
