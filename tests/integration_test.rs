@@ -859,10 +859,10 @@ fn example_batch_vector_operations() {
     // Batch update all particles
     for i in 0..particle_count {
         // Update velocity: v = v + a*dt
-        velocities[i] = velocities[i] + gravity * dt;
+        velocities[i] += gravity * dt;
 
         // Update position: p = p + v*dt
-        positions[i] = positions[i] + velocities[i] * dt;
+        positions[i] += velocities[i] * dt;
     }
 
     // Verify particles have moved correctly
