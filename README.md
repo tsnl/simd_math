@@ -55,3 +55,7 @@ Spherical coordinates are `(azimuth, elevation, radius)` with Y up: azimuth is m
 ### Hidden SIMD lanes
 
 3-component vectors are stored in 4-lane registers. The extra lane is an internal detail: it always holds zero, every operation preserves that invariant, and equality, `Debug`, indexing, and reductions all ignore it. Indexing a `SimdVec3` with `v[3]` panics.
+
+## Benchmarks
+
+`cargo bench` runs a small suite comparing the SIMD types against scalar baselines. It uses the nightly libtest bench harness, so there are no extra dependencies.

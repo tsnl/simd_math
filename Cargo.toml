@@ -4,6 +4,10 @@ version = "1.0.2"
 edition = "2024"
 description = "SIMD math for spatial computing."
 license = "MIT"
+repository = "https://github.com/tsnl/simd_math"
+readme = "README.md"
+keywords = ["simd", "math", "vector", "quaternion", "graphics"]
+categories = ["mathematics", "game-development", "graphics", "science::robotics"]
 
 [dependencies]
 num-traits = "^0.2.19"
