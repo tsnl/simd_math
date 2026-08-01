@@ -2,7 +2,7 @@
 //! These tests also serve as comprehensive examples of how to use the simd_math library
 //! for real-world 3D graphics, animation, and spatial computing applications.
 
-use simd_math::*;
+use simd_math::prelude::*;
 use std::f32::consts::PI;
 
 //--------------------------------------------------------------------------------------------------
@@ -487,8 +487,8 @@ fn example_collision_detection() {
     let overlap = player_moved_aabb & wall_aabb;
     assert!(!overlap.is_empty());
     // The overlapping region is the part of the wall the player has entered.
-    assert!((overlap.min[0] - 2.0).abs() < 1e-6);
-    assert!((overlap.max[0] - 2.5).abs() < 1e-6);
+    assert!((overlap.min[X] - 2.0).abs() < 1e-6);
+    assert!((overlap.max[X] - 2.5).abs() < 1e-6);
 }
 
 #[test]
@@ -673,8 +673,6 @@ fn example_camera_projection() {
 
     // Camera parameters
     let camera_position = SimdVec3::ZERO;
-    let fov = PI / 3.0; // 60 degrees
-    let aspect_ratio = 16.0 / 9.0;
 
     for world_point in world_points {
         // Transform to camera space (simplified - just translate)
@@ -682,25 +680,15 @@ fn example_camera_projection() {
 
         // Convert to spherical for angular calculations
         let spherical = camera_space.into_spherical_coords();
-        let azimuth = spherical[0];
-        let elevation = spherical[1];
+        let azimuth = spherical[X];
+        let elevation = spherical[Y];
+        let radius = spherical[Z];
 
-        // Simple angular bounds check (is point in field of view?)
-        let half_fov = fov / 2.0;
-        let half_fov_x = half_fov * aspect_ratio;
-
-        let in_fov = azimuth.abs() < half_fov_x && elevation.abs() < half_fov;
-
-        // Point should have reasonable angular coordinates
-        assert!(azimuth.abs() < PI);
-        assert!(elevation.abs() < PI / 2.0);
-
-        // Close points should be more likely to be in FOV
-        if camera_space[2] < 6.0 {
-            // Don't assert in_fov as it depends on the specific points,
-            // but verify we can compute it
-            let _computed_fov_check = in_fov;
-        }
+        // Angular coordinates must land in their documented ranges, and the
+        // radius must equal the point's distance from the camera.
+        assert!(azimuth.abs() <= PI);
+        assert!(elevation.abs() <= PI / 2.0);
+        assert!((radius - camera_space.norm()).abs() < 1e-5);
     }
 }
 
@@ -972,8 +960,9 @@ fn test_readme_example() {
     // Apply rotation to vector
     let rotated_vector = rotation * vector;
 
-    // Verify the rotation worked correctly (90-degree rotation around Z should turn (1,0,0) into (0,1,0))
-    assert!((rotated_vector[0] - 0.0).abs() < 1e-6);
-    assert!((rotated_vector[1] - 1.0).abs() < 1e-6);
-    assert!((rotated_vector[2] - 0.0).abs() < 1e-6);
+    // Verify the rotation worked correctly (90-degree rotation around Z should turn (1,0,0) into (0,1,0)).
+    // Components are indexed; the prelude's X/Y/Z constants name the indices.
+    assert!((rotated_vector[X] - 0.0).abs() < 1e-6);
+    assert!((rotated_vector[Y] - 1.0).abs() < 1e-6);
+    assert!((rotated_vector[Z] - 0.0).abs() < 1e-6);
 }
