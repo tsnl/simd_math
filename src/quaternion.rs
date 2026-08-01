@@ -4,7 +4,7 @@ use std::ops::Mul;
 /// Quaternion represented as an f32x4 SIMD datatype [s, x, y, z]
 /// IMPORTANT: norm is assumed to always be 1. Constructors ensure this.
 /// Reference: https://www.3dgep.com/understanding-quaternions/#Rotations
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct SimdUnitQuat(pub(crate) f32x4); // s, x, y, z
 
 impl SimdUnitQuat {
