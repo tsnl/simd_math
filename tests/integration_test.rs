@@ -220,9 +220,9 @@ fn example_ui_transition() {
 #[test]
 fn test_matrix_operations() {
     // Test matrix creation and transformation
-    let _identity = SimdMat4::identity();
+    let _identity = SimdMat3x4::identity();
     let translation = SimdVec3::from([1.0, 2.0, 3.0]);
-    let transform_matrix = SimdMat4::from_translation(translation);
+    let transform_matrix = SimdMat3x4::from_translation(translation);
 
     let point = SimdVec3::from([0.0, 0.0, 0.0]);
     let transformed = transform_matrix * point;
@@ -242,8 +242,8 @@ fn example_model_view_transform() {
     let model_translation = SimdVec3::from([5.0, 0.0, 0.0]);
 
     // Create transformation matrices
-    let rotation_matrix = SimdMat4::from(model_rotation);
-    let translation_matrix = SimdMat4::from_translation(model_translation);
+    let rotation_matrix = SimdMat3x4::from(model_rotation);
+    let translation_matrix = SimdMat3x4::from_translation(model_translation);
 
     // Combine: translate * rotate (order matters!)
     let model_matrix = translation_matrix * rotation_matrix;
@@ -252,12 +252,11 @@ fn example_model_view_transform() {
     let local_vertex = SimdVec3::from([1.0, 0.0, 0.0]);
     let world_vertex = model_matrix * (local_vertex * model_scale[0]); // Manual scale
 
-    // Verify transformation applied correctly
-    // After scaling by 2, rotating 45° around Y, then translating by (5,0,0)
-    assert!(world_vertex[0] > 5.0); // Should be translated and have rotated component
-    assert!(world_vertex[1].abs() < 1e-6); // Y should remain 0
-    // Z can be positive or negative depending on rotation direction
-    assert!(world_vertex[2].abs() > 0.0); // Should have Z component from rotation
+    // Scaling (1,0,0) by 2 gives (2,0,0); rotating 45 deg around +Y gives
+    // (2*cos45, 0, -2*sin45); translating by (5,0,0) shifts X by 5.
+    let angle = PI / 4.0;
+    let expected = SimdVec3::from([5.0 + 2.0 * angle.cos(), 0.0, -2.0 * angle.sin()]);
+    assert!((world_vertex - expected).norm() < 1e-6);
 }
 
 #[test]
@@ -278,15 +277,15 @@ fn example_billboard_transform() {
     let up = forward.cross(right);
 
     // Create billboard matrix
-    let billboard_matrix = SimdMat4::from_rotation(right, up, forward);
-    let _final_matrix = SimdMat4::from_translation(sprite_position) * billboard_matrix;
+    let billboard_matrix = SimdMat3x4::from_rotation(right, up, forward);
+    let _final_matrix = SimdMat3x4::from_translation(sprite_position) * billboard_matrix;
 
-    // Test that a forward vector points toward camera (in XZ plane)
+    // The billboard's local +Z axis must map exactly onto the constructed
+    // forward direction (the third basis column).
     let sprite_forward = SimdVec3::from([0.0, 0.0, 1.0]);
     let world_forward = billboard_matrix * sprite_forward;
-
-    // Should point generally toward camera direction (simplified test)
-    assert!(world_forward.norm() > 0.99); // Should be normalized
+    assert!((world_forward - forward).norm() < 1e-6);
+    assert!((world_forward.norm() - 1.0).abs() < 1e-6); // Should be normalized
 }
 
 //--------------------------------------------------------------------------------------------------
