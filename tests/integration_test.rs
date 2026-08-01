@@ -114,9 +114,15 @@ fn example_camera_controls() {
     let forward = SimdVec3::from([0.0, 0.0, -1.0]);
     let camera_direction = combined_rotation * forward;
 
-    // Verify the rotation worked (approximate values for combined rotation)
-    assert!(camera_direction.norm() > 0.99); // Should remain unit length
-    assert!(camera_direction[1] > 0.0); // Should be looking up
+    // Yawing (0,0,-1) by 45 deg around +Y gives (-sin45, 0, -cos45); pitching
+    // that by 30 deg around +X gives (-sin45, sin30*cos45, -cos30*cos45).
+    let expected = SimdVec3::from([
+        -yaw_angle.sin(),
+        pitch_angle.sin() * yaw_angle.cos(),
+        -pitch_angle.cos() * yaw_angle.cos(),
+    ]);
+    assert!((camera_direction - expected).norm() < 1e-6);
+    assert!((camera_direction.norm() - 1.0).abs() < 1e-6); // Should remain unit length
 }
 
 #[test]
@@ -133,12 +139,10 @@ fn example_spacecraft_attitude() {
     let spacecraft_forward = SimdVec3::from([0.0, 0.0, 1.0]);
     let new_forward = target_orientation * spacecraft_forward;
 
-    // After 90° yaw + 45° pitch, check that rotation applied correctly
-    // The exact values depend on quaternion multiplication order
-    assert!(new_forward.norm() > 0.99); // Should remain unit length
-    // Based on debug output, pitch*yaw gives (1,0,0), yaw*pitch gives (0.707,-0.707,0)
-    // So either X or negative Y component should be significant
-    assert!(new_forward[0].abs() > 0.5 || new_forward[1].abs() > 0.5);
+    // Yawing (0,0,1) by 90 deg around +Y gives (1,0,0), which then lies on the
+    // pitch axis, so the 45 deg pitch leaves it unchanged.
+    assert!((new_forward - SimdVec3::UNIT_X).norm() < 1e-6);
+    assert!((new_forward.norm() - 1.0).abs() < 1e-6); // Should remain unit length
 }
 
 //--------------------------------------------------------------------------------------------------
