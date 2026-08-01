@@ -1,9 +1,13 @@
 use super::*;
-use num_traits::identities::ConstZero;
+use num_traits::identities::{ConstOne, ConstZero};
 use std::fmt::Debug;
-use std::ops::{Add, AddAssign, Div, DivAssign, Index, Mul, MulAssign, Neg, Sub, SubAssign};
+use std::ops::{
+    Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub, SubAssign,
+};
 
+/// Common interface implemented by every vector type in this crate.
 pub trait SimdVector: Sized {
+    /// The scalar type stored in each lane of the vector.
     type LaneType: Sized + ConstZero + Copy + Debug + PartialEq + PartialOrd;
 }
 
@@ -18,21 +22,61 @@ macro_rules! impl_int_simd_vec {
     ($name:ident : $simd_ty:ty [ $lane_ty:ty ; $dim:expr ]) => {
         impl_basic_simd_vec!($name : $simd_ty [ $lane_ty ; $dim ]);
         impl_simd_vec_neg_method!($name : $simd_ty [ $lane_ty ; $dim ]);
+        impl Eq for $name {}
     };
 }
 macro_rules! impl_uint_simd_vec {
     ($name:ident : $simd_ty:ty [ $lane_ty:ty ; $dim:expr ]) => {
         impl_basic_simd_vec!($name : $simd_ty [ $lane_ty ; $dim ]);
+        impl Eq for $name {}
     }
 }
 
 macro_rules! impl_basic_simd_vec {
     ($name:ident : $simd_ty:ty [ $lane_ty:ty ; $dim:expr ]) => {
-        #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+        #[doc = concat!(
+            "A ", stringify!($dim), "-dimensional vector of `", stringify!($lane_ty),
+            "` lanes backed by a `", stringify!($simd_ty), "` register."
+        )]
+        ///
+        /// When the backing register is wider than the vector, the extra
+        /// (padding) lanes always hold zero. Every operation preserves this
+        /// invariant, and comparisons ignore the padding lanes.
+        #[derive(Clone, Copy)]
         pub struct $name(pub(crate) $simd_ty);
+
+        impl Debug for $name {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.debug_tuple(stringify!($name))
+                    .field(&&self.0.as_array()[..$dim])
+                    .finish()
+            }
+        }
+
+        /// Equality over the visible lanes only; padding lanes are ignored.
+        impl PartialEq for $name {
+            #[inline]
+            fn eq(&self, other: &Self) -> bool {
+                self.0.as_array()[..$dim] == other.0.as_array()[..$dim]
+            }
+        }
 
         impl SimdVector for $name {
             type LaneType = $lane_ty;
+        }
+
+        impl $name {
+            /// Returns a copy of `v` with the padding lanes (if any) replaced
+            /// by ones, making elementwise division and product reduction
+            /// well-defined for vectors narrower than their backing register.
+            #[inline]
+            fn with_padding_ones(v: $simd_ty) -> $simd_ty {
+                let mut arr = *v.as_array();
+                for lane in arr[$dim..].iter_mut() {
+                    *lane = <$lane_ty>::ONE;
+                }
+                <$simd_ty>::from_array(arr)
+            }
         }
 
         impl_simd_vec_ctor_methods!($name : $simd_ty [ $lane_ty ; $dim ]);
@@ -42,11 +86,21 @@ macro_rules! impl_basic_simd_vec {
 
 macro_rules! impl_simd_vec_ctor_methods {
     ($name:ident : $simd_ty:ty [ $lane_ty:ty ; $dim:expr ]) => {
-        // Splat scalar as SimdVecN
         impl $name {
+            /// Creates a vector with every component set to `value`.
             #[inline]
             pub fn splat(value: $lane_ty) -> Self {
-                $name(<$simd_ty>::splat(value))
+                let mut arr = [<$lane_ty>::ZERO; <$simd_ty>::LEN];
+                arr[..$dim].fill(value);
+                $name(<$simd_ty>::from_array(arr))
+            }
+
+            /// Creates a vector from an array of any scalar type that converts
+            /// losslessly into the lane type, e.g.
+            /// `SimdUVec2::from_convert([1u16, 2u16])`.
+            #[inline]
+            pub fn from_convert<T: Into<$lane_ty>>(arr: [T; $dim]) -> Self {
+                Self::from(arr.map(Into::into))
             }
         }
 
@@ -82,17 +136,23 @@ macro_rules! impl_simd_vec_universal_methods {
             }
         }
         impl $name {
+            /// Dot product of two vectors.
             #[inline]
+            #[must_use]
             pub fn dot(self, other: $name) -> $lane_ty {
                 (self.0 * other.0).reduce_sum()
             }
+            /// Sum of all components.
             #[inline]
+            #[must_use]
             pub fn reduce_sum(self) -> $lane_ty {
                 self.0.reduce_sum()
             }
+            /// Product of all components.
             #[inline]
+            #[must_use]
             pub fn reduce_product(self) -> $lane_ty {
-                self.0.reduce_product()
+                Self::with_padding_ones(self.0).reduce_product()
             }
         }
         impl Mul<$lane_ty> for $name {
@@ -100,6 +160,14 @@ macro_rules! impl_simd_vec_universal_methods {
             #[inline]
             fn mul(self, rhs: $lane_ty) -> Self::Output {
                 $name(self.0 * <$simd_ty>::splat(rhs))
+            }
+        }
+        impl Mul<$name> for $lane_ty {
+            type Output = $name;
+            /// Scalar-on-the-left multiplication: `s * v == v * s`.
+            #[inline]
+            fn mul(self, rhs: $name) -> Self::Output {
+                rhs * self
             }
         }
         impl MulAssign<$lane_ty> for $name {
@@ -126,13 +194,13 @@ macro_rules! impl_simd_vec_universal_methods {
             type Output = $name;
             #[inline]
             fn div(self, rhs: $lane_ty) -> Self::Output {
-                $name(self.0 / <$simd_ty>::splat(rhs))
+                $name(self.0 / Self::with_padding_ones(<$simd_ty>::splat(rhs)))
             }
         }
         impl DivAssign<$lane_ty> for $name {
             #[inline]
             fn div_assign(&mut self, rhs: $lane_ty) {
-                self.0 /= <$simd_ty>::splat(rhs);
+                self.0 /= Self::with_padding_ones(<$simd_ty>::splat(rhs));
             }
         }
         impl Div<$name> for $name {
@@ -140,13 +208,13 @@ macro_rules! impl_simd_vec_universal_methods {
             /// Element-wise division
             #[inline]
             fn div(self, rhs: $name) -> Self::Output {
-                $name(self.0 / rhs.0)
+                $name(self.0 / Self::with_padding_ones(rhs.0))
             }
         }
         impl DivAssign<$name> for $name {
             #[inline]
             fn div_assign(&mut self, rhs: $name) {
-                self.0 /= rhs.0;
+                self.0 /= Self::with_padding_ones(rhs.0);
             }
         }
         impl Add<$name> for $name {
@@ -176,9 +244,15 @@ macro_rules! impl_simd_vec_universal_methods {
             }
         }
         impl $name {
+            /// Elementwise minimum of two vectors.
+            #[inline]
+            #[must_use]
             pub fn elementwise_min(self, other: $name) -> $name {
                 $name(self.0.simd_min(other.0))
             }
+            /// Elementwise maximum of two vectors.
+            #[inline]
+            #[must_use]
             pub fn elementwise_max(self, other: $name) -> $name {
                 $name(self.0.simd_max(other.0))
             }
@@ -187,7 +261,25 @@ macro_rules! impl_simd_vec_universal_methods {
             type Output = $lane_ty;
             #[inline]
             fn index(&self, index: usize) -> &Self::Output {
+                assert!(
+                    index < $dim,
+                    "index out of bounds: the vector has {} components but the index is {}",
+                    $dim,
+                    index
+                );
                 &self.0[index]
+            }
+        }
+        impl IndexMut<usize> for $name {
+            #[inline]
+            fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+                assert!(
+                    index < $dim,
+                    "index out of bounds: the vector has {} components but the index is {}",
+                    $dim,
+                    index
+                );
+                &mut self.0[index]
             }
         }
     };
@@ -211,18 +303,22 @@ macro_rules! impl_simd_vec_float_methods {
             /// Compute the squared Euclidean norm of the vector.
             /// This is more efficient than computing the norm itself.
             #[inline]
+            #[must_use]
             pub fn norm_squared(self) -> $lane_ty {
                 self.dot(self)
             }
 
             /// Compute the Euclidean norm (magnitude) of the vector.
             #[inline]
+            #[must_use]
             pub fn norm(self) -> $lane_ty {
                 self.norm_squared().sqrt()
             }
 
             /// Normalize the vector by dividing it by its norm.
+            /// Returns `None` for the zero vector.
             #[inline]
+            #[must_use]
             pub fn normalized(self) -> Option<Self> {
                 let norm = self.norm();
                 if norm == 0.0 {
@@ -235,6 +331,7 @@ macro_rules! impl_simd_vec_float_methods {
 
             /// Linear interpolation between two vectors a and b by factor t
             #[inline]
+            #[must_use]
             pub fn lerp(a: Self, b: Self, t: $lane_ty) -> Self {
                 let k_a = <$simd_ty>::splat(1.0 - t);
                 let k_b = <$simd_ty>::splat(t);
@@ -244,6 +341,7 @@ macro_rules! impl_simd_vec_float_methods {
 
             /// Clamp each component of the vector between the corresponding components of min and max
             #[inline]
+            #[must_use]
             pub fn clamp(self, min: Self, max: Self) -> Self {
                 let clamped = self.0.simd_clamp(min.0, max.0);
                 Self(clamped)
@@ -251,6 +349,7 @@ macro_rules! impl_simd_vec_float_methods {
 
             /// Element-wise power operation with scalar exponent
             #[inline]
+            #[must_use]
             pub fn powf(self, exponent: $lane_ty) -> Self {
                 let self_array = *self.0.as_array();
                 let mut result = self_array; // Start with the same array structure
@@ -262,6 +361,7 @@ macro_rules! impl_simd_vec_float_methods {
 
             /// Element-wise power operation with SIMD exponent vector
             #[inline]
+            #[must_use]
             pub fn powf_elementwise(self, exponent: Self) -> Self {
                 let self_array = *self.0.as_array();
                 let exp_array = *exponent.0.as_array();
@@ -288,21 +388,33 @@ impl_float_simd_vec!(SimdVec3: f32x4 [f32; 3]);
 impl_float_simd_vec!(SimdVec2: f32x2 [f32; 2]);
 
 impl SimdVec2 {
+    /// The zero vector.
     pub const ZERO: Self = Self(f32x2::from_array([0.0, 0.0]));
+    /// The unit vector along the X axis.
     pub const UNIT_X: Self = Self(f32x2::from_array([1.0, 0.0]));
+    /// The unit vector along the Y axis.
     pub const UNIT_Y: Self = Self(f32x2::from_array([0.0, 1.0]));
 }
 impl SimdVec3 {
+    /// The zero vector.
     pub const ZERO: Self = Self(f32x4::from_array([0.0, 0.0, 0.0, 0.0]));
+    /// The unit vector along the X axis.
     pub const UNIT_X: Self = Self(f32x4::from_array([1.0, 0.0, 0.0, 0.0]));
+    /// The unit vector along the Y axis.
     pub const UNIT_Y: Self = Self(f32x4::from_array([0.0, 1.0, 0.0, 0.0]));
+    /// The unit vector along the Z axis.
     pub const UNIT_Z: Self = Self(f32x4::from_array([0.0, 0.0, 1.0, 0.0]));
 }
 impl SimdVec4 {
+    /// The zero vector.
     pub const ZERO: Self = Self(f32x4::from_array([0.0, 0.0, 0.0, 0.0]));
+    /// The unit vector along the X axis.
     pub const UNIT_X: Self = Self(f32x4::from_array([1.0, 0.0, 0.0, 0.0]));
+    /// The unit vector along the Y axis.
     pub const UNIT_Y: Self = Self(f32x4::from_array([0.0, 1.0, 0.0, 0.0]));
+    /// The unit vector along the Z axis.
     pub const UNIT_Z: Self = Self(f32x4::from_array([0.0, 0.0, 1.0, 0.0]));
+    /// The unit vector along the W axis.
     pub const UNIT_W: Self = Self(f32x4::from_array([0.0, 0.0, 0.0, 1.0]));
 }
 
@@ -315,6 +427,7 @@ impl SimdVec2 {
     /// Returns UV coordinates where:
     /// - u is in range [0, 1] (left to right across the texture)
     /// - v is in range [0, 1] (top to bottom of the texture)
+    #[must_use]
     pub fn spherical_coords_angles_into_equirectangular_coords(self) -> Self {
         let azimuth = self[0];
         let elevation = self[1];
@@ -328,20 +441,43 @@ impl SimdVec2 {
 
         SimdVec2::from([u, v])
     }
+
+    /// Extend this vector into a [`SimdVec3`] with the given `z` component.
+    #[inline]
+    #[must_use]
+    pub fn into_vec3(self, z: f32) -> SimdVec3 {
+        SimdVec3::from([self[0], self[1], z])
+    }
 }
 
 impl SimdVec4 {
+    /// Truncate this vector into a [`SimdVec3`], dropping the `w` component.
+    #[inline]
+    #[must_use]
     pub fn into_vec3(self) -> SimdVec3 {
         SimdVec3::from([self[0], self[1], self[2]])
     }
 }
 
 impl SimdVec3 {
+    /// Extend this vector into a [`SimdVec4`] with the given `w` component.
+    #[inline]
+    #[must_use]
+    pub fn into_vec4(self, w: f32) -> SimdVec4 {
+        let mut v = self.0;
+        v[3] = w;
+        SimdVec4(v)
+    }
+
     /// Convert a Cartesian vector to spherical coordinates.
     /// Returns (azimuth, elevation, radius) where:
     /// - azimuth: angle in the horizontal plane, range [-π, π]
     /// - elevation: angle in the vertical plane, range [-π/2, π/2]
     /// - radius: distance from origin
+    ///
+    /// The convention is Y-up: azimuth is measured in the XZ plane from +X
+    /// towards +Z, and elevation is measured towards +Y.
+    #[must_use]
     pub fn into_spherical_coords(self) -> Self {
         let x = self[0];
         let y = self[1];
@@ -363,6 +499,7 @@ impl SimdVec3 {
     /// Returns a vector perpendicular to both input vectors.
     /// The magnitude of the result is |a| * |b| * sin(θ) where θ is the angle between the vectors.
     /// The direction follows the right-hand rule.
+    #[must_use]
     pub fn cross(self, other: SimdVec3) -> SimdVec3 {
         let a = self;
         let b = other;
@@ -1149,5 +1286,183 @@ mod vector_unit_tests {
         use super::*;
         test_simd_vec_ctor_methods!(SimdUVec4, u32, 4, [1, 2, 3, 4]);
         test_simd_vec_universal_methods_int!(SimdUVec4, u32, 4, [5, 4, 3, 2]);
+    }
+}
+
+#[cfg(test)]
+mod padding_lane_tests {
+    //! Regression tests for the invariant that padding lanes (lanes beyond the
+    //! vector's dimension in a wider backing register) always hold zero, and
+    //! that no operation observes or corrupts them.
+    use super::*;
+
+    fn pad_f(v: SimdVec3) -> f32 {
+        v.0[3]
+    }
+
+    #[test]
+    fn test_splat_zeroes_padding() {
+        let v = SimdVec3::splat(2.0);
+        assert_eq!(pad_f(v), 0.0);
+        assert_eq!(v.dot(v), 12.0);
+        assert_eq!(v.reduce_sum(), 6.0);
+        assert_eq!(v.norm_squared(), 12.0);
+        assert_eq!(SimdIVec3::splat(2).reduce_sum(), 6);
+        assert_eq!(SimdUVec3::splat(2).reduce_sum(), 6);
+    }
+
+    #[test]
+    fn test_reduce_product_ignores_padding() {
+        assert_eq!(SimdVec3::from([2.0, 3.0, 4.0]).reduce_product(), 24.0);
+        assert_eq!(SimdIVec3::from([2, 3, 4]).reduce_product(), 24);
+        assert_eq!(SimdUVec3::from([2, 3, 4]).reduce_product(), 24);
+        assert_eq!(SimdVec4::from([1.0, 2.0, 3.0, 4.0]).reduce_product(), 24.0);
+    }
+
+    #[test]
+    fn test_elementwise_int_div() {
+        let q = SimdIVec3::from([4, 6, 8]) / SimdIVec3::from([2, 3, 4]);
+        assert_eq!(q, SimdIVec3::from([2, 2, 2]));
+
+        let mut q = SimdUVec3::from([4, 6, 8]);
+        q /= SimdUVec3::from([2, 3, 4]);
+        assert_eq!(q, SimdUVec3::from([2, 2, 2]));
+
+        let q = SimdIVec3::from([9, 9, 9]) / 3;
+        assert_eq!(q, SimdIVec3::from([3, 3, 3]));
+    }
+
+    #[test]
+    fn test_elementwise_float_div_keeps_padding_zero() {
+        let q = SimdVec3::from([4.0, 6.0, 8.0]) / SimdVec3::from([2.0, 3.0, 4.0]);
+        assert_eq!(q, SimdVec3::from([2.0, 2.0, 2.0]));
+        assert_eq!(pad_f(q), 0.0);
+        assert!(!q.norm().is_nan());
+
+        // Scalar division by zero produces infinities in the visible lanes
+        // (IEEE-754), but the padding lane must not become NaN.
+        let q = SimdVec3::from([1.0, 2.0, 3.0]) / 0.0;
+        assert_eq!(pad_f(q), 0.0);
+    }
+
+    #[test]
+    fn test_eq_ignores_padding() {
+        assert_eq!(SimdVec3::splat(2.0), SimdVec3::from([2.0, 2.0, 2.0]));
+
+        // Even a manually corrupted padding lane must not affect equality.
+        let mut corrupted = SimdVec3::from([1.0, 2.0, 3.0]);
+        corrupted.0[3] = 7.0;
+        assert_eq!(corrupted, SimdVec3::from([1.0, 2.0, 3.0]));
+    }
+
+    #[test]
+    #[should_panic(expected = "index out of bounds")]
+    fn test_index_out_of_bounds_panics() {
+        let v = SimdVec3::from([1.0, 2.0, 3.0]);
+        let _ = v[3];
+    }
+
+    #[test]
+    fn test_index_mut() {
+        let mut v = SimdVec3::from([1.0, 2.0, 3.0]);
+        v[1] = 5.0;
+        assert_eq!(v, SimdVec3::from([1.0, 5.0, 3.0]));
+    }
+
+    #[test]
+    #[should_panic(expected = "index out of bounds")]
+    fn test_index_mut_out_of_bounds_panics() {
+        let mut v = SimdUVec3::from([1, 2, 3]);
+        v[3] = 4;
+    }
+
+    #[test]
+    fn test_ops_preserve_padding_zero() {
+        let a = SimdVec3::from([1.0, 2.0, 3.0]);
+        let b = SimdVec3::from([4.0, 5.0, 6.0]);
+        assert_eq!(pad_f(a + b), 0.0);
+        assert_eq!(pad_f(a - b), 0.0);
+        assert_eq!(pad_f(a * b), 0.0);
+        assert_eq!(pad_f(a / b), 0.0);
+        assert_eq!(pad_f(a * 2.0), 0.0);
+        assert_eq!(pad_f(2.0 * a), 0.0);
+        assert_eq!(pad_f(a / 2.0), 0.0);
+        assert_eq!(pad_f(-a), 0.0);
+        assert_eq!(pad_f(a.elementwise_min(b)), 0.0);
+        assert_eq!(pad_f(a.elementwise_max(b)), 0.0);
+        assert_eq!(pad_f(SimdVec3::lerp(a, b, 0.5)), 0.0);
+        assert_eq!(pad_f(a.clamp(SimdVec3::ZERO, b)), 0.0);
+        assert_eq!(pad_f(a.powf(2.0)), 0.0);
+        assert_eq!(pad_f(a.powf_elementwise(b)), 0.0);
+        assert_eq!(pad_f(a.cross(b)), 0.0);
+        assert_eq!(pad_f(a.normalized().unwrap()), 0.0);
+        assert_eq!(pad_f(SimdVec3::default()), 0.0);
+        assert_eq!(pad_f(SimdVec3::splat(9.0)), 0.0);
+    }
+}
+
+#[cfg(test)]
+mod conversion_and_scalar_op_tests {
+    use super::*;
+
+    #[test]
+    fn test_scalar_times_vector() {
+        assert_eq!(
+            2.0 * SimdVec3::from([1.0, 2.0, 3.0]),
+            SimdVec3::from([2.0, 4.0, 6.0])
+        );
+        assert_eq!(2 * SimdIVec2::from([1, 2]), SimdIVec2::from([2, 4]));
+        assert_eq!(
+            2u32 * SimdUVec4::from([1, 2, 3, 4]),
+            SimdUVec4::from([2, 4, 6, 8])
+        );
+    }
+
+    #[test]
+    fn test_from_convert() {
+        assert_eq!(
+            SimdUVec2::from_convert([1u16, 2u16]),
+            SimdUVec2::from([1, 2])
+        );
+        assert_eq!(
+            SimdIVec3::from_convert([1i16, -2i16, 3i16]),
+            SimdIVec3::from([1, -2, 3])
+        );
+        assert_eq!(
+            SimdVec3::from_convert([1u8, 2u8, 3u8]),
+            SimdVec3::from([1.0, 2.0, 3.0])
+        );
+        assert_eq!(
+            SimdVec4::from_convert([1i8, 2i8, 3i8, 4i8]),
+            SimdVec4::from([1.0, 2.0, 3.0, 4.0])
+        );
+    }
+
+    #[test]
+    fn test_into_vec_conversions() {
+        assert_eq!(
+            SimdVec2::from([1.0, 2.0]).into_vec3(3.0),
+            SimdVec3::from([1.0, 2.0, 3.0])
+        );
+        assert_eq!(
+            SimdVec3::from([1.0, 2.0, 3.0]).into_vec4(4.0),
+            SimdVec4::from([1.0, 2.0, 3.0, 4.0])
+        );
+        assert_eq!(
+            SimdVec4::from([1.0, 2.0, 3.0, 4.0]).into_vec3(),
+            SimdVec3::from([1.0, 2.0, 3.0])
+        );
+    }
+
+    #[test]
+    fn test_debug_format_shows_visible_lanes_only() {
+        assert_eq!(
+            format!("{:?}", SimdVec3::from([1.0, 2.0, 3.0])),
+            "SimdVec3([1.0, 2.0, 3.0])"
+        );
+        assert_eq!(
+            format!("{:?}", SimdUVec2::from([1, 2])),
+            "SimdUVec2([1, 2])"
+        );
     }
 }
