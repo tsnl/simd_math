@@ -44,7 +44,7 @@ This decision further eschews conventions about what is front, up, and right in 
 
 Vectors are column vectors. Matrix multiplication is `Matrix * Vector`.
 
-Matrices are constructed in column-major order, i.e. each argument to `SimdMat3x4::new` is a column. This is consistent with OpenGL and GLM, but not with most textbook math. `SimdMat3x4` is a 3×4 affine transform: three transformed basis-vector columns plus a translation column, with an implicit `[0, 0, 0, 1]` bottom row.
+Matrices are constructed in column-major order, i.e. each argument to `SimdMat3x4::new` is a column. Matrix dimensions are named rows×columns, as in mathematics, HLSL, and Vulkan — so `SimdMat3x4` has 3 rows and 4 columns: three transformed basis-vector columns plus a translation column, with an implicit `[0, 0, 0, 1]` bottom row, mapping homogeneous 4-vectors to 3-vectors. (Beware: GLSL and GLM name matrix types columns-first and would call this same shape `mat4x3`.)
 
 Quaternions are represented as `(s, x, y, z)` where `s` is the scalar part. Think `s + iv`.
 
