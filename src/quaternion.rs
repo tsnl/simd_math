@@ -1,24 +1,30 @@
 use super::*;
 use std::ops::Mul;
 
-/// Quaternion represented as an f32x4 SIMD datatype [s, x, y, z]
-/// IMPORTANT: norm is assumed to always be 1. Constructors ensure this.
-/// Reference: https://www.3dgep.com/understanding-quaternions/#Rotations
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+/// A unit (rotation) quaternion stored as an `f32x4` in `[s, x, y, z]` order,
+/// where `s` is the scalar (real) part. Think `s + iv`.
+///
+/// IMPORTANT: the norm is assumed to always be 1. Constructors ensure this.
+/// Reference: <https://www.3dgep.com/understanding-quaternions/#Rotations>
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct SimdUnitQuat(pub(crate) f32x4); // s, x, y, z
 
 impl SimdUnitQuat {
+    /// The identity (no-rotation) quaternion.
     pub const IDENTITY: Self = Self(f32x4::from_array([1.0, 0.0, 0.0, 0.0]));
 }
 
 impl Default for SimdUnitQuat {
     #[inline]
     fn default() -> Self {
-        SimdUnitQuat::new(1.0, 0.0, 0.0, 0.0) // Identity quaternion
+        Self::IDENTITY
     }
 }
 
 impl From<[f32; 4]> for SimdUnitQuat {
+    /// Builds a unit quaternion from `[s, x, y, z]`, normalizing the input.
+    ///
+    /// Panics if the input cannot be normalized; see [`SimdUnitQuat::new`].
     #[inline]
     fn from(q: [f32; 4]) -> Self {
         SimdUnitQuat::new(q[0], q[1], q[2], q[3])
@@ -33,13 +39,31 @@ impl From<SimdUnitQuat> for [f32; 4] {
 }
 
 impl SimdUnitQuat {
+    /// Creates a unit quaternion from `(s, x, y, z)` components, normalizing
+    /// the result.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the components cannot be normalized into a unit quaternion
+    /// (all zero, or large/non-finite enough that the norm is not a positive
+    /// finite number).
     #[inline]
     pub fn new(s: f32, x: f32, y: f32, z: f32) -> Self {
         let q = f32x4::from_array([s, x, y, z]);
-        let n = q / f32x4::splat((q * q).reduce_sum().sqrt());
-        SimdUnitQuat(n)
+        let norm = (q * q).reduce_sum().sqrt();
+        assert!(
+            norm > 0.0 && norm.is_finite(),
+            "cannot normalize the given components into a unit quaternion"
+        );
+        SimdUnitQuat(q / f32x4::splat(norm))
     }
 
+    /// Creates a quaternion representing a rotation of `angle` radians around
+    /// `axis` (right-hand rule). The axis does not need to be normalized.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `axis` is the zero vector.
     #[inline]
     pub fn from_axis_angle(axis: SimdVec3, angle: f32) -> Self {
         // Normalize the axis vector
@@ -55,24 +79,74 @@ impl SimdUnitQuat {
 impl SimdUnitQuat {
     /// Conjugate: q* = [s, -v]
     #[inline]
+    #[must_use]
     pub fn conjugate(self) -> Self {
         SimdUnitQuat(self.0 * f32x4::from_array([1.0, -1.0, -1.0, -1.0]))
     }
 
     /// Inverse: for unit quaternions, q* = q⁻¹
     #[inline]
+    #[must_use]
     pub fn inverse(self) -> Self {
         self.conjugate()
     }
 
+    /// The scalar (real) part of the quaternion.
     #[inline]
+    #[must_use]
     pub fn real(self) -> f32 {
         self.0[0]
     }
 
+    /// The vector (imaginary) part of the quaternion.
     #[inline]
+    #[must_use]
     pub fn imag(self) -> SimdVec3 {
         SimdVec3(simd_swizzle!(self.0, [1, 2, 3, 0]) * f32x4::from_array([1.0, 1.0, 1.0, 0.0]))
+    }
+
+    /// Recovers the rotation axis (unit length) and angle (radians, in
+    /// `[0, 2π]`) represented by this quaternion.
+    ///
+    /// For the identity quaternion the axis is arbitrary; this returns
+    /// `(SimdVec3::UNIT_X, 0.0)`.
+    #[must_use]
+    pub fn to_axis_angle(self) -> (SimdVec3, f32) {
+        let angle = 2.0 * self.real().clamp(-1.0, 1.0).acos();
+        match self.imag().normalized() {
+            Some(axis) => (axis, angle),
+            None => (SimdVec3::UNIT_X, 0.0),
+        }
+    }
+
+    /// Spherical linear interpolation from `a` (at `t = 0`) to `b`
+    /// (at `t = 1`), always taking the shorter arc.
+    ///
+    /// Falls back to normalized linear interpolation when the quaternions are
+    /// nearly parallel, where slerp is numerically unstable.
+    #[must_use]
+    pub fn slerp(a: Self, b: Self, t: f32) -> Self {
+        let mut dot = (a.0 * b.0).reduce_sum();
+
+        // q and -q represent the same rotation; pick the sign of b that gives
+        // the shorter arc.
+        let mut b = b.0;
+        if dot < 0.0 {
+            b = -b;
+            dot = -dot;
+        }
+
+        if dot > 0.9995 {
+            // Nearly parallel: nlerp to avoid dividing by a tiny sin(theta).
+            let q = a.0 + (b - a.0) * f32x4::splat(t);
+            return SimdUnitQuat(q / f32x4::splat((q * q).reduce_sum().sqrt()));
+        }
+
+        let theta = dot.clamp(-1.0, 1.0).acos();
+        let sin_theta = theta.sin();
+        let k_a = ((1.0 - t) * theta).sin() / sin_theta;
+        let k_b = (t * theta).sin() / sin_theta;
+        SimdUnitQuat(a.0 * f32x4::splat(k_a) + b * f32x4::splat(k_b))
     }
 }
 
@@ -103,30 +177,16 @@ impl Mul<SimdUnitQuat> for SimdUnitQuat {
 impl Mul<SimdVec3> for SimdUnitQuat {
     type Output = SimdVec3;
 
+    /// Rotates a vector by this quaternion.
+    ///
+    /// Uses the optimized form of the sandwich product q * v * q⁻¹:
+    /// with `t = 2 (v_q × v)`, the result is `v + s t + v_q × t`, which is
+    /// cheaper than performing two full quaternion multiplications.
     #[inline]
     fn mul(self, rhs: SimdVec3) -> Self::Output {
-        // Same logic as above, but since we cannot construct Quaternions of non-unit length, we
-        // have to manually rewrite the multiplication. However, we can assume that s2 is 0 since
-        // rhs is a pure-imaginary quaternion, which saves us some work.
-
-        // Calculate p_intermediate = self * rhs_pure_quaternion
-        // rhs_pure_quaternion has scalar part 0 and vector part rhs.
-        // Scalar part of p_intermediate: -self.imag().dot(rhs)
-        let s_p = -self.imag().dot(rhs);
-
-        // Vector part of p_intermediate: self.real()*rhs + self.imag().cross(rhs)
-        let v_p = rhs * self.real() + self.imag().cross(rhs);
-
-        // Combine the two by summing the scalar and vector parts for p_intermediate:
-        let p = SimdUnitQuat(
-            f32x4::from_array([s_p, 0.0, 0.0, 0.0]) + simd_swizzle!(v_p.0, [3, 0, 1, 2]),
-        );
-
-        // Finally, post-multiply by the rotor's inverse (just the conjugate, so cheap) to obtain a
-        // rotated vector.
-        // This is equivalent to: result_pure_quat := p_intermediate * self.inverse()
-        // then take imag(result_pure_quat)
-        (p * self.inverse()).imag()
+        let qv = self.imag();
+        let t = qv.cross(rhs) * 2.0;
+        rhs + t * self.real() + qv.cross(t)
     }
 }
 
@@ -176,6 +236,12 @@ mod simd_unit_quat_tests {
     }
 
     #[test]
+    #[should_panic(expected = "cannot normalize")]
+    fn test_quat_new_zero_panics() {
+        SimdUnitQuat::new(0.0, 0.0, 0.0, 0.0);
+    }
+
+    #[test]
     fn test_quat_default_is_identity() {
         assert_quat_eq(
             SimdUnitQuat::default(),
@@ -209,6 +275,20 @@ mod simd_unit_quat_tests {
     }
 
     #[test]
+    fn test_quat_to_axis_angle_roundtrip() {
+        let axis = SimdVec3::from([1.0, 2.0, 3.0]).normalized().unwrap();
+        let angle = 1.234;
+        let (recovered_axis, recovered_angle) =
+            SimdUnitQuat::from_axis_angle(axis, angle).to_axis_angle();
+        assert_vec3_eq(recovered_axis, axis);
+        assert_f32_eq(recovered_angle, angle);
+
+        // Identity has no rotation axis; angle must be zero.
+        let (_, identity_angle) = SimdUnitQuat::IDENTITY.to_axis_angle();
+        assert_f32_eq(identity_angle, 0.0);
+    }
+
+    #[test]
     fn test_quat_conjugate_inverse() {
         let q = SimdUnitQuat::from_axis_angle(SimdVec3::from([1.0, 2.0, 3.0]), PI / 3.0);
         let q_conj = q.conjugate();
@@ -217,7 +297,7 @@ mod simd_unit_quat_tests {
         assert_quat_eq(q_conj, q_inv); // For unit quaternions, conjugate is inverse
 
         // q * q_conj should be identity [1,0,0,0]
-        let identity = q * q_conj; // Fixed typo: q_conjugate -> q_conj
+        let identity = q * q_conj;
         assert_quat_eq(identity, SimdUnitQuat::default());
 
         assert_f32_eq(q_conj.0[0], q.0[0]);
@@ -306,6 +386,40 @@ mod simd_unit_quat_tests {
             SimdUnitQuat::from_axis_angle(SimdVec3::from([0.0, 0.0, 1.0]), -PI / 2.0);
         let v_expected = SimdVec3::from([1.0, -1.0, 0.0]).normalized().unwrap();
         assert_vec3_eq(q_rot_z_neg90 * v_in, v_expected);
+
+        // Rotating a non-unit vector must scale correctly and preserve length.
+        let v_long = SimdVec3::from([3.0, 4.0, 12.0]);
+        let rotated = q_rot_z90 * v_long;
+        assert_f32_eq(rotated.norm(), v_long.norm());
+        assert_vec3_eq(rotated, SimdVec3::from([-4.0, 3.0, 12.0]));
+    }
+
+    #[test]
+    fn test_quat_slerp() {
+        let q0 = SimdUnitQuat::IDENTITY;
+        let q1 = SimdUnitQuat::from_axis_angle(SimdVec3::from([0.0, 0.0, 1.0]), PI / 2.0);
+
+        // Endpoints
+        assert_quat_eq(SimdUnitQuat::slerp(q0, q1, 0.0), q0);
+        assert_quat_eq(SimdUnitQuat::slerp(q0, q1, 1.0), q1);
+
+        // Midpoint between identity and a 90 degree rotation is a 45 degree rotation.
+        let midpoint = SimdUnitQuat::slerp(q0, q1, 0.5);
+        let expected = SimdUnitQuat::from_axis_angle(SimdVec3::from([0.0, 0.0, 1.0]), PI / 4.0);
+        assert_quat_eq(midpoint, expected);
+
+        // Slerp between nearly identical quaternions (nlerp fallback path).
+        let q_close = SimdUnitQuat::from_axis_angle(SimdVec3::from([0.0, 0.0, 1.0]), 1e-4);
+        let q = SimdUnitQuat::slerp(q0, q_close, 0.5);
+        let norm_sq = (q.0 * q.0).reduce_sum();
+        assert_f32_eq(norm_sq, 1.0);
+
+        // Slerp must take the short way around: interpolating towards -q1
+        // (the same rotation as q1) should act like interpolating towards q1.
+        let neg_q1 = SimdUnitQuat(-q1.0);
+        let midpoint_neg = SimdUnitQuat::slerp(q0, neg_q1, 0.5);
+        let v = SimdVec3::from([1.0, 0.0, 0.0]);
+        assert_vec3_eq(midpoint_neg * v, expected * v);
     }
 
     #[test]

@@ -39,6 +39,12 @@ jobs:
           token: ${{ secrets.PAT_TOKEN }}
           fetch-depth: 0
 
+      # Keep rust-toolchain.toml the single source of truth for the pinned
+      # toolchain instead of duplicating the version string here.
+      - name: Read pinned toolchain channel
+        id: toolchain
+        run: echo "channel=$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)" >> "$GITHUB_OUTPUT"
+
       - name: Publish crate with `tsnl/semver-bump-and-cargo-publish`
         id: publish
         uses: tsnl/semver-bump-and-cargo-publish@main
@@ -51,7 +57,7 @@ jobs:
           wait_for_checks: "Test; Lint; Check Formatting"
           check_wait_interval: "60"
           check_timeout_count: "20"
-          rust_toolchain: "nightly-2025-09-30"
+          rust_toolchain: ${{ steps.toolchain.outputs.channel }}
           git_user_email: "nikhilidiculla@gmail.com"
           git_user_name: "Nikhil Idiculla (via GitHub Actions)"
 

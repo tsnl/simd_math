@@ -1,13 +1,21 @@
 use super::*;
 use std::ops::Mul;
 
-#[derive(Clone, Copy, Default)]
+/// A rigid-body transform: a rotation followed by a translation.
+///
+/// Composes with `*` and applies to points with `* SimdVec3`. Unlike
+/// [`SimdAffine3`], it cannot represent scale or shear, but it composes and
+/// inverts more cheaply and never drifts away from being a rigid transform.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct SimdTransform {
     position: SimdVec3,
     rotation: SimdUnitQuat,
 }
 
 impl SimdTransform {
+    /// The identity transform (no translation, no rotation).
+    pub const IDENTITY: Self = Self::new(SimdVec3::ZERO, SimdUnitQuat::IDENTITY);
+
     /// Create a new transform with the given translation and rotation.
     #[inline]
     pub const fn new(translation: SimdVec3, rotation: SimdUnitQuat) -> Self {
@@ -19,21 +27,27 @@ impl SimdTransform {
 
     /// Create a new identity transform (no translation, no rotation).
     #[inline]
-    pub fn identity() -> Self {
-        SimdTransform::default()
+    pub const fn identity() -> Self {
+        Self::IDENTITY
     }
 
+    /// The translation component of this transform.
     #[inline]
+    #[must_use]
     pub fn position(&self) -> SimdVec3 {
         self.position
     }
 
+    /// The rotation component of this transform.
     #[inline]
+    #[must_use]
     pub fn rotation(&self) -> SimdUnitQuat {
         self.rotation
     }
 
+    /// The inverse transform, such that `t * t.inverse()` is the identity.
     #[inline]
+    #[must_use]
     pub fn inverse(self) -> Self {
         // The inverse of a transform is the inverse of the rotation and the negative of the
         // rotated position.
@@ -114,6 +128,7 @@ mod simd_transform_tests {
         let t_ident = SimdTransform::identity();
         let t_default = SimdTransform::default();
         assert_transform_eq(t_ident, t_default);
+        assert_transform_eq(t_ident, SimdTransform::IDENTITY);
         assert_vec3_eq(t_ident.position, SimdVec3::default());
         assert_quat_eq(t_ident.rotation, SimdUnitQuat::default());
     }
@@ -155,23 +170,11 @@ mod simd_transform_tests {
             SimdTransform::new(expected_trans, expected_rot),
         );
 
-        // Apply to a point (implicitly, by checking components)
-        // Point p = (1,0,0)
-        // T2(p): rot2 * p + trans2 = (180X * (1,0,0)) + (10,0,0) = (1,0,0) + (10,0,0) = (11,0,0)
-        // T1(T2(p)): rot1 * (11,0,0) + trans1 = (90Z * (11,0,0)) + (1,2,3)
-        //            = (0,11,0) + (1,2,3) = (1,13,3)
-
-        // Let's verify the new_translation and new_rotation directly
         // rot1 * trans2: 90Z * (10,0,0) = (0,10,0)
         // trans1 + rot1*trans2 = (1,2,3) + (0,10,0) = (1,12,3)
         assert_vec3_eq(composed_tf.position, SimdVec3::from([1.0, 12.0, 3.0]));
 
-        // rot1: 90Z, rot2: 180X
-        // (s1,0,0,z1) * (s2,x2,0,0) = [s1s2, s1x2, z1s2, z1x2] (simplified)
-        // q_z90 = [cos(pi/4), 0, 0, sin(pi/4)]
-        // q_x180 = [cos(pi/2), sin(pi/2), 0, 0] = [0, 1, 0, 0]
-        // rot1 * rot2 = [0, cos(pi/4), 0, sin(pi/4)]
-        // Actually, it's rot1 * rot2, so q_rot1 is [c,0,0,s] and q_rot2 is [0,1,0,0]
+        // rot1: 90Z = [c,0,0,s], rot2: 180X = [0,1,0,0] with c = s = cos(pi/4)
         // s_res = c*0 - 0*1 - 0*0 - s*0 = 0
         // x_res = c*1 + 0*0 + 0*0 - s*0 = c
         // y_res = c*0 + 0*0 + 0*0 + s*1 = s
@@ -179,7 +182,6 @@ mod simd_transform_tests {
         // So, the resulting quaternion is [0, c, s, 0]
         let c45 = (PI / 4.0).cos();
         let s45 = (PI / 4.0).sin();
-        // let expected_composed_q = quat(0.0, c45, s45, 0.0); // This was for q_x * q_z, but it's q_z * q_x
         assert_quat_eq(composed_tf.rotation, SimdUnitQuat::new(0.0, c45, s45, 0.0));
     }
 
@@ -199,7 +201,7 @@ mod simd_transform_tests {
             SimdUnitQuat::from_axis_angle(axis, angle),
         );
         let inv_t = t.inverse();
-        assert_transform_eq(t * inv_t, SimdTransform::default()); // Identity inverse is itself
+        assert_transform_eq(t * inv_t, SimdTransform::default()); // Composing with the inverse is identity
     }
 
     #[test]
